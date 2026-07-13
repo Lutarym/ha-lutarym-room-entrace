@@ -389,6 +389,7 @@ class LutarymRoomStatusCard extends HTMLElement {
         }
         .popup-btn.active { background:var(--c); color:var(--ct,#fff); }
         .popup-btn:not(.active):hover { background:rgba(255,255,255,.12); }
+        .popup-btn.wide { grid-column:1 / -1; }
       </style>
       <ha-card>
         <div class="grid">
@@ -407,6 +408,8 @@ class LutarymRoomStatusCard extends HTMLElement {
                 style="--c:#F50000">${this._labels.occupied}</button>
               <button class="popup-btn" id="btn-reserved"
                 style="--c:#2196F3">${this._labels.reserved}</button>
+              <button class="popup-btn wide" id="btn-closed"
+                style="--c:#546E7A">${this._labels.closed}</button>
             </div>
           </div>
         </div>
@@ -492,6 +495,17 @@ class LutarymRoomStatusCard extends HTMLElement {
       });
     });
 
+    // "Closed" button: always sets the room to closed directly (no toggle)
+    const closedBtn = this.shadowRoot.getElementById('btn-closed');
+    closedBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!this._hass || !this._popupId) return;
+      const room = this._config.rooms.find(r => r.position === this._popupId);
+      if (!room) return;
+      this._closePopup();
+      this._setRoomStatus(room, 'closed');
+    });
+
     // Close overlay on click outside the popup box
     const overlay = this.shadowRoot.getElementById('popup');
     overlay.addEventListener('click', e => {
@@ -514,7 +528,7 @@ class LutarymRoomStatusCard extends HTMLElement {
   _refreshPopupBtns() {
     const room = this._config.rooms.find(r => r.position === this._popupId);
     const s = this._roomStatus(room);
-    ['free','appointment','occupied','reserved'].forEach(a => {
+    ['free','appointment','occupied','reserved','closed'].forEach(a => {
       this.shadowRoot.getElementById(`btn-${a}`)
         .classList.toggle('active', a === s);
     });
