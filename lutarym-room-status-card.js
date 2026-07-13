@@ -29,6 +29,7 @@
  *   font_size_label: 1.2                            # optional, em (default 1.2)
  *   font_size_person: 0.88                          # optional, em (default 0.88)
  *   font_size_status: 1.05                          # optional, em (default 1.05)
+ *   font_size_closed: 1.2                            # optional, em (default 1.2)
  *   rooms:                                        # REQUIRED, 1-4 rooms
  *     - label: Room 1
  *       person: Jane Doe
@@ -63,6 +64,7 @@ const I18N = {
     editorFontLabel: 'Room label',
     editorFontPerson: 'Person name',
     editorFontStatus: 'Status text',
+    editorFontClosed: 'Closed text',
     sectionLabels: 'Status Labels (optional overrides)',
     editorLabelFree: 'Label: Free',
     editorLabelAppointment: 'Label: Appointment',
@@ -100,6 +102,7 @@ const I18N = {
     editorFontLabel: 'Raumbeschriftung',
     editorFontPerson: 'Personenname',
     editorFontStatus: 'Statustext',
+    editorFontClosed: 'Geschlossen-Text',
     sectionLabels: 'Status-Beschriftungen (optionale Überschreibung)',
     editorLabelFree: 'Beschriftung: Frei',
     editorLabelAppointment: 'Beschriftung: Termin',
@@ -298,6 +301,7 @@ class LutarymRoomStatusCard extends HTMLElement {
     const fsl = cfg.font_size_label  ?? 1.2;
     const fsp = cfg.font_size_person ?? 0.88;
     const fss = cfg.font_size_status ?? 1.05;
+    const fsc = cfg.font_size_closed ?? 1.2;
     const cw  = cfg.corridor_width   ?? 68;
 
     // Labels from config (with i18n defaults)
@@ -345,7 +349,7 @@ class LutarymRoomStatusCard extends HTMLElement {
         .room-person { font-size:calc(${fsp}em * var(--scale,1)); font-weight:500; opacity:.9; margin-top:6px; text-shadow:0 1px 4px rgba(0,0,0,0.35); }
         .room-divider { width:60%; height:1px; background:rgba(255,255,255,0.4); margin:8px auto 0; }
         .room-footer { margin-top:auto; text-align:center; }
-        .room-closed { display:none; position:absolute; inset:0; align-items:center; justify-content:center; font-size:calc(${fsl}em * var(--scale,1)); font-weight:800; color:rgba(255,255,255,0.6); letter-spacing:.05em; text-transform:uppercase; pointer-events:none; text-shadow:0 2px 8px rgba(0,0,0,0.4); }
+        .room-closed { display:none; position:absolute; inset:0; align-items:center; justify-content:center; font-size:calc(${fsc}em * var(--scale,1)); font-weight:800; color:rgba(255,255,255,0.6); letter-spacing:.05em; text-transform:uppercase; pointer-events:none; text-shadow:0 2px 8px rgba(0,0,0,0.4); }
         .room-status { font-size:calc(${fss}em * var(--scale,1)); font-weight:700; letter-spacing:.04em; text-transform:uppercase; text-shadow:0 1px 4px rgba(0,0,0,0.35); }
         .exit-quadrant {
           display:flex; align-items:center; justify-content:center;
@@ -877,7 +881,10 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     form.appendChild(this._sideBySide(
       this._numberRow(t(hass, 'editorFontLabel'), 'font_size_label', cfg.font_size_label ?? 1.2, 1.2),
       this._numberRow(t(hass, 'editorFontPerson'), 'font_size_person', cfg.font_size_person ?? 0.88, 0.88),
+    ));
+    form.appendChild(this._sideBySide(
       this._numberRow(t(hass, 'editorFontStatus'), 'font_size_status', cfg.font_size_status ?? 1.05, 1.05),
+      this._numberRow(t(hass, 'editorFontClosed'), 'font_size_closed', cfg.font_size_closed ?? 1.2, 1.2),
     ));
 
     const labelsLabel = document.createElement('div');

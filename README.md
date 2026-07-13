@@ -63,6 +63,7 @@ arrow_animation: 1                             # optional, 1-10 (Draw/Pulse/Blin
 font_size_label: 1.2                            # optional, em (default 1.2)
 font_size_person: 0.88                          # optional, em (default 0.88)
 font_size_status: 1.05                          # optional, em (default 1.05)
+font_size_closed: 1.2                            # optional, em (default 1.2)
 status_labels:                                # optional, override the default status text
   free: Free
   appointment: Appointment
