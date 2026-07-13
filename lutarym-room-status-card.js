@@ -7,9 +7,9 @@
  * (occupied / appointment / free / closed), with an animated arrow
  * pointing toward whichever room is currently "free", a walking-person
  * icon in the corridor when any room is active, and a popup (tap a room)
- * to change its status. Status is stored in Home Assistant via
- * `input_boolean` helper entities — one per room and status, picked
- * directly per room (no naming convention), not in localStorage.
+ * to change its status. Each room's status is stored in a single text or
+ * select helper entity (`input_text` or `input_select`) picked per room
+ * in the visual editor — not in localStorage.
  *
  * INSTALLATION
  *   1. Copy the file to /config/www/lutarym-room-status-card.js
@@ -17,16 +17,14 @@
  *        URL:  /local/lutarym-room-status-card.js
  *        Type: JavaScript Module
  *   3. Clear your browser cache (Ctrl+F5)
- *   4. Create 3 toggle helpers per room: Settings > Devices & Services >
- *      Helpers > + Add Helper > Toggle (no helper needed for "closed" —
- *      that's simply the state when none of the other three are on),
- *      then select them per room in the visual editor
+ *   4. Create one text/select helper per room: Settings > Devices &
+ *      Services > Helpers > + Add Helper > Text (or Dropdown). Its state
+ *      must be exactly "occupied", "appointment", "free", or "closed".
+ *      Then select it per room in the visual editor.
  *
  * CONFIGURATION
  *   type: custom:lutarym-room-status-card
  *   corridor_width: 68                          # optional, px (default 68)
- *   show_emergency_exit: true                     # optional, default true
- *   emergency_exit_position: top-left              # optional, default top-left — only shown if no room occupies it
  *   arrow_animation: 1                             # optional, 1-10 (see below)
  *   font_size_label: 1.2                            # optional, em (default 1.2)
  *   font_size_person: 0.88                          # optional, em (default 0.88)
@@ -35,21 +33,13 @@
  *     - label: Room 1
  *       person: Jane Doe
  *       position: bottom-left                    # top-left | top-right | bottom-left | bottom-right
- *       entity_occupied: input_boolean.room1_occupied
- *       entity_appointment: input_boolean.room1_appointment
- *       entity_free: input_boolean.room1_free
+ *       entity: input_select.room1_status
  *     - label: Room 2
  *       person: John Smith
  *       position: top-right
- *       entity_occupied: input_boolean.room2_occupied
- *       entity_appointment: input_boolean.room2_appointment
- *       entity_free: input_boolean.room2_free
- *     - label: Room 3
- *       person: Alex Miller
- *       position: bottom-right
- *       entity_occupied: input_boolean.room3_occupied
- *       entity_appointment: input_boolean.room3_appointment
- *       entity_free: input_boolean.room3_free
+ *       entity: input_text.room2_status
+ *     - position: top-left                       # Emergency Exit — label/person/entity not needed
+ *       is_exit: true
  */
 
 const VERSION = '1.0.0';
@@ -65,9 +55,6 @@ const I18N = {
     statusClosed: 'Closed',
     roomsMissing: '"rooms" (array) is required.',
     editorCorridorWidth: 'Corridor width (px)',
-    editorShowExit: 'Show "Emergency Exit" in an empty quadrant',
-    editorExitPosition: 'Emergency Exit position',
-    editorExitPositionHint: 'Only shown if no room is placed here. Disable the checkbox above, or place a room here, to use this spot as a normal room instead.',
     editorArrowAnimation: 'Arrow animation',
     anim1: '1 – Draw', anim2: '2 – Pulse', anim3: '3 – Blink', anim4: '4 – Glow', anim5: '5 – Bounce',
     anim6: '6 – Flow', anim7: '7 – Wave', anim8: '8 – Chase', anim9: '9 – Dots', anim10: '10 – Runlight',
@@ -81,17 +68,16 @@ const I18N = {
     editorLabelOccupied: 'Label: Occupied',
     editorLabelClosed: 'Label: Closed',
     sectionRooms: 'Rooms ({count}/4)',
-    roomsHint: 'Up to 4 rooms, one per corner of the floor plan.',
-    helpersHint: 'For each room, create 3 toggle helpers in Home Assistant: Settings → Devices & Services → Helpers → + Add Helper → Toggle. Then select them below (no helper needed for "closed" — that\u2019s the state when none of the other three are on).',
+    roomsHint: 'Up to 4 rooms, one per corner of the floor plan. Mark one as the Emergency Exit instead of a bookable room if needed.',
+    helpersHint: 'For each room, create one text or select helper in Home Assistant that holds the status as text: Settings → Devices & Services → Helpers → + Add Helper → Text (or Dropdown). Its state must be exactly "occupied", "appointment", "free", or "closed". Then select it below.',
     roomHeaderLabel: 'Room {n}',
     removeLabel: 'Remove',
     addRoomLabel: '+ Add room',
     editorRoomLabel: 'Label',
     editorRoomPerson: 'Person (optional)',
     editorRoomPosition: 'Position',
-    editorRoomEntityOccupied: 'Entity: Occupied',
-    editorRoomEntityAppointment: 'Entity: Appointment',
-    editorRoomEntityFree: 'Entity: Free',
+    editorRoomEntity: 'Status entity (text or select helper)',
+    editorRoomIsExit: 'This is the Emergency Exit (not a bookable room)',
     posTopLeft: 'Top left', posTopRight: 'Top right', posBottomLeft: 'Bottom left', posBottomRight: 'Bottom right',
     cardName: 'Room Status by Lutarym',
     cardDescription: 'Office floor-plan card showing room status (occupied/appointment/free/closed) with animated wayfinding arrows and a tap-to-change popup.',
@@ -104,9 +90,6 @@ const I18N = {
     statusClosed: 'Geschlossen',
     roomsMissing: 'Pflichtfeld "rooms" (Array) fehlt.',
     editorCorridorWidth: 'Flurbreite (px)',
-    editorShowExit: '"Notausgang" in einer leeren Ecke anzeigen',
-    editorExitPosition: 'Notausgang-Position',
-    editorExitPositionHint: 'Wird nur angezeigt, wenn dort kein Raum liegt. Checkbox oben deaktivieren oder hier einen Raum platzieren, um die Ecke stattdessen normal zu nutzen.',
     editorArrowAnimation: 'Pfeil-Animation',
     anim1: '1 – Zeichnen', anim2: '2 – Pulsieren', anim3: '3 – Blinken', anim4: '4 – Glühen', anim5: '5 – Springen',
     anim6: '6 – Fließen', anim7: '7 – Welle', anim8: '8 – Chase', anim9: '9 – Punkte', anim10: '10 – Lauflicht',
@@ -120,17 +103,16 @@ const I18N = {
     editorLabelOccupied: 'Beschriftung: Belegt',
     editorLabelClosed: 'Beschriftung: Geschlossen',
     sectionRooms: 'Räume ({count}/4)',
-    roomsHint: 'Bis zu 4 Räume, je einer pro Ecke des Grundrisses.',
-    helpersHint: 'Für jeden Raum werden 3 Schalter-Helfer in Home Assistant benötigt: Einstellungen → Geräte & Dienste → Helfer → + Helfer hinzufügen → Schalter. Anschließend unten auswählen (kein Helfer für "geschlossen" nötig — das ist der Zustand, wenn keiner der drei anderen aktiv ist).',
+    roomsHint: 'Bis zu 4 Räume, je einer pro Ecke des Grundrisses. Einen davon kannst du statt als buchbaren Raum als Notausgang markieren.',
+    helpersHint: 'Für jeden Raum wird ein Text- oder Auswahl-Helfer in Home Assistant benötigt, der den Status als Text enthält: Einstellungen → Geräte & Dienste → Helfer → + Helfer hinzufügen → Text (oder Dropdown). Der Zustand muss genau "occupied", "appointment", "free" oder "closed" lauten. Anschließend unten auswählen.',
     roomHeaderLabel: 'Raum {n}',
     removeLabel: 'Entfernen',
     addRoomLabel: '+ Raum hinzufügen',
     editorRoomLabel: 'Beschriftung',
     editorRoomPerson: 'Person (optional)',
     editorRoomPosition: 'Position',
-    editorRoomEntityOccupied: 'Entity: Belegt',
-    editorRoomEntityAppointment: 'Entity: Termin',
-    editorRoomEntityFree: 'Entity: Frei',
+    editorRoomEntity: 'Status-Entity (Text- oder Auswahl-Helfer)',
+    editorRoomIsExit: 'Dies ist der Notausgang (kein buchbarer Raum)',
     posTopLeft: 'Oben links', posTopRight: 'Oben rechts', posBottomLeft: 'Unten links', posBottomRight: 'Unten rechts',
     cardName: 'Room Status by Lutarym',
     cardDescription: 'Grundriss-Karte mit Raumstatus (Belegt/Termin/Frei/Geschlossen), animierten Wegweiser-Pfeilen und Popup zum Statuswechsel per Tap.',
@@ -196,28 +178,11 @@ class LutarymRoomStatusCard extends HTMLElement {
   static getStubConfig() {
     return {
       corridor_width: 68,
-      show_emergency_exit: true,
-      emergency_exit_position: 'top-left',
       arrow_animation: 1,
       rooms: [
-        {
-          label: 'Room 1', person: 'Jane Doe', position: 'bottom-left',
-          entity_occupied: 'input_boolean.room1_occupied',
-          entity_appointment: 'input_boolean.room1_appointment',
-          entity_free: 'input_boolean.room1_free',
-        },
-        {
-          label: 'Room 2', person: 'John Smith', position: 'top-right',
-          entity_occupied: 'input_boolean.room2_occupied',
-          entity_appointment: 'input_boolean.room2_appointment',
-          entity_free: 'input_boolean.room2_free',
-        },
-        {
-          label: 'Room 3', person: 'Alex Miller', position: 'bottom-right',
-          entity_occupied: 'input_boolean.room3_occupied',
-          entity_appointment: 'input_boolean.room3_appointment',
-          entity_free: 'input_boolean.room3_free',
-        },
+        { label: 'Room 1', person: 'Jane Doe',   position: 'bottom-left',  entity: 'input_select.room1_status' },
+        { label: 'Room 2', person: 'John Smith', position: 'top-right',    entity: 'input_select.room2_status' },
+        { label: 'Room 3', person: 'Alex Miller', position: 'bottom-right', entity: 'input_select.room3_status' },
       ],
     };
   }
@@ -323,7 +288,6 @@ class LutarymRoomStatusCard extends HTMLElement {
     const cfg   = this._config;
     const rooms = cfg.rooms;
     const byPos = Object.fromEntries(rooms.map(r => [r.position, r]));
-    const showExit = cfg.show_emergency_exit !== false;
 
     const fsl = cfg.font_size_label  ?? 1.2;
     const fsp = cfg.font_size_person ?? 0.88;
@@ -339,12 +303,11 @@ class LutarymRoomStatusCard extends HTMLElement {
     };
 
     const AREA_MAP = { 'top-left': 'tl', 'top-right': 'tr', 'bottom-left': 'bl', 'bottom-right': 'br' };
-    const exitPos = cfg.emergency_exit_position ?? 'top-left';
     const positionsHtml = Object.keys(AREA_MAP).map(pos => {
       const area = AREA_MAP[pos];
       const room = byPos[pos];
+      if (room && room.is_exit) return this._exitHtml(area);
       if (room) return this._roomHtml(room, area);
-      if (pos === exitPos) return this._exitHtml(showExit, area);
       return `<div style="grid-area:${area};background:#212121"></div>`;
     }).join('');
 
@@ -477,18 +440,18 @@ class LutarymRoomStatusCard extends HTMLElement {
     }
     if (this._popupId) this._refreshPopupBtns();
 
-    // Person icon: visible when at least 1 room is active
-    const anyActive  = this._config.rooms.some(r => this._roomStatus(r) !== 'closed');
+    // Person icon: visible when at least 1 (non-exit) room is active
+    const anyActive  = this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) !== 'closed');
     const personEl = this.shadowRoot.getElementById('corridor-person');
     if (personEl) personEl.style.display = anyActive ? 'block' : 'none';
 
-    // Arrows: only visible when a room is "free"
+    // Arrows: only visible when a (non-exit) room is "free"
     const byPos = Object.fromEntries(this._config.rooms.map(r => [r.position, r]));
     ['bl','br','tr'].forEach(pos => {
       const arrow = this.shadowRoot.getElementById(`arrow-${pos}`);
       if (!arrow) return;
       const room = byPos[pos === 'bl' ? 'bottom-left' : pos === 'br' ? 'bottom-right' : 'top-right'];
-      const show  = room && this._roomStatus(room) === 'free';
+      const show  = room && !room.is_exit && this._roomStatus(room) === 'free';
       arrow.style.display = show ? 'block' : 'none';
     });
   }
@@ -511,17 +474,7 @@ class LutarymRoomStatusCard extends HTMLElement {
         if (!room) return;
         const turnOn = this._roomStatus(room) !== action;
         this._closePopup();
-        // Turn all off first
-        const entityMap = { free: room.entity_free, appointment: room.entity_appointment, occupied: room.entity_occupied };
-        Object.values(entityMap).forEach(entityId => {
-          if (entityId) this._hass.callService('input_boolean', 'turn_off', { entity_id: entityId });
-        });
-        // Then turn the selected one on after a short delay
-        if (turnOn && entityMap[action]) {
-          setTimeout(() => {
-            this._hass.callService('input_boolean', 'turn_on', { entity_id: entityMap[action] });
-          }, 150);
-        }
+        this._setRoomStatus(room, turnOn ? action : 'closed');
       });
     });
 
@@ -560,20 +513,28 @@ class LutarymRoomStatusCard extends HTMLElement {
 
   // ── Entity lookups ─────────────────────────────────────────────────────
 
-  _state(id) { return id ? (this._hass?.states[id]?.state ?? 'off') : 'off'; }
-
   _roomStatus(room) {
-    if (!room) return 'closed';
-    if (this._state(room.entity_occupied)    === 'on') return 'occupied';
-    if (this._state(room.entity_appointment) === 'on') return 'appointment';
-    if (this._state(room.entity_free)        === 'on') return 'free';
-    return 'closed';
+    if (!room || !room.entity || !this._hass) return 'closed';
+    const state = this._hass.states[room.entity]?.state;
+    return (state === 'occupied' || state === 'appointment' || state === 'free') ? state : 'closed';
+  }
+
+  // Writes the new status into the room's single status entity — supports
+  // input_select (select_option) and input_text (set_value); any other
+  // domain falls back to input_text.set_value as a best effort.
+  _setRoomStatus(room, value) {
+    if (!room?.entity || !this._hass) return;
+    const domain = room.entity.split('.')[0];
+    if (domain === 'input_select') {
+      this._hass.callService('input_select', 'select_option', { entity_id: room.entity, option: value });
+    } else {
+      this._hass.callService('input_text', 'set_value', { entity_id: room.entity, value });
+    }
   }
 
   // ── HTML building blocks ──────────────────────────────────────────────────
 
-  _exitHtml(showExit, area) {
-    if (!showExit) return `<div style="grid-area:${area};background:#212121"></div>`;
+  _exitHtml(area) {
     return `<div class="exit-quadrant" style="grid-area:${area}">
               <span class="exit-label">${esc(t(this._hass, 'emergencyExit'))}</span></div>`;
   }
@@ -765,13 +726,17 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
   // Entity picker for a single room's status entity (occupied/appointment/
   // free), filtered to the input_boolean domain since that's what the
   // card expects. Writes into the specific room object via _onRoomChange.
+  // Entity picker for a room's single status entity — a text or select
+  // helper whose state directly holds the status ("occupied" /
+  // "appointment" / "free" / "closed"). Writes into the specific room
+  // object via _onRoomChange.
   _roomEntityRow(label, roomIndex, field, value) {
     const wrap = document.createElement('div');
     wrap.className = 'row';
     wrap.innerHTML = `<label>${label}</label>`;
     const selector = document.createElement('ha-selector');
     selector.hass = this._hass;
-    selector.selector = { entity: { domain: 'input_boolean' } };
+    selector.selector = { entity: { domain: ['input_text', 'input_select'] } };
     selector.value = value ?? '';
     selector.addEventListener('value-changed', ev => {
       ev.stopPropagation();
@@ -886,20 +851,6 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
       ], v => this._onChange('arrow_animation', v, true)),
     ));
 
-    form.appendChild(this._checkboxRow(t(hass, 'editorShowExit'), 'show_emergency_exit', cfg.show_emergency_exit, true));
-    form.appendChild(this._selectRow(t(hass, 'editorExitPosition'), 'emergency_exit_position', cfg.emergency_exit_position ?? 'top-left', [
-      { value: 'top-left', label: t(hass, 'posTopLeft') },
-      { value: 'top-right', label: t(hass, 'posTopRight') },
-      { value: 'bottom-left', label: t(hass, 'posBottomLeft') },
-      { value: 'bottom-right', label: t(hass, 'posBottomRight') },
-    ], v => this._onChange('emergency_exit_position', v)));
-    {
-      const hint = document.createElement('div');
-      hint.className = 'hint';
-      hint.textContent = t(hass, 'editorExitPositionHint');
-      form.appendChild(hint);
-    }
-
     const fontLabel = document.createElement('div');
     fontLabel.className = 'section-label';
     fontLabel.textContent = t(hass, 'sectionFontSizes');
@@ -966,35 +917,51 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
       header.appendChild(removeBtn);
       roomCard.appendChild(header);
 
-      const labelRow = document.createElement('div');
-      labelRow.className = 'row';
-      labelRow.innerHTML = `<label>${t(hass, 'editorRoomLabel')}</label>`;
-      const labelInput = document.createElement('input');
-      labelInput.type = 'text';
-      labelInput.value = room.label ?? '';
-      labelInput.placeholder = 'Room 1';
-      labelInput.addEventListener('change', ev => this._onRoomChange(i, 'label', ev.target.value));
-      labelRow.appendChild(labelInput);
-      roomCard.appendChild(labelRow);
-
-      const personRow = document.createElement('div');
-      personRow.className = 'row';
-      personRow.innerHTML = `<label>${t(hass, 'editorRoomPerson')}</label>`;
-      const personInput = document.createElement('input');
-      personInput.type = 'text';
-      personInput.value = room.person ?? '';
-      personInput.addEventListener('change', ev => this._onRoomChange(i, 'person', ev.target.value));
-      personRow.appendChild(personInput);
-      roomCard.appendChild(personRow);
-
       roomCard.appendChild(this._selectRow(
         t(hass, 'editorRoomPosition'), null, room.position ?? 'top-left', positionOptions,
         v => this._onRoomChange(i, 'position', v),
       ));
 
-      roomCard.appendChild(this._roomEntityRow(t(hass, 'editorRoomEntityOccupied'), i, 'entity_occupied', room.entity_occupied));
-      roomCard.appendChild(this._roomEntityRow(t(hass, 'editorRoomEntityAppointment'), i, 'entity_appointment', room.entity_appointment));
-      roomCard.appendChild(this._roomEntityRow(t(hass, 'editorRoomEntityFree'), i, 'entity_free', room.entity_free));
+      const exitCheckboxRow = document.createElement('div');
+      exitCheckboxRow.className = 'row checkbox-row';
+      const exitLabel = document.createElement('label');
+      exitLabel.textContent = t(hass, 'editorRoomIsExit');
+      const exitCheckbox = document.createElement('input');
+      exitCheckbox.type = 'checkbox';
+      exitCheckbox.checked = !!room.is_exit;
+      exitCheckbox.addEventListener('change', ev => {
+        this._onRoomChange(i, 'is_exit', ev.target.checked);
+        this._render(); // structural change: show/hide the fields below
+      });
+      exitCheckboxRow.appendChild(exitCheckbox);
+      exitCheckboxRow.appendChild(exitLabel);
+      roomCard.appendChild(exitCheckboxRow);
+
+      // Label/person/entity are irrelevant for the Emergency Exit quadrant
+      if (!room.is_exit) {
+        const labelRow = document.createElement('div');
+        labelRow.className = 'row';
+        labelRow.innerHTML = `<label>${t(hass, 'editorRoomLabel')}</label>`;
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.value = room.label ?? '';
+        labelInput.placeholder = 'Room 1';
+        labelInput.addEventListener('change', ev => this._onRoomChange(i, 'label', ev.target.value));
+        labelRow.appendChild(labelInput);
+        roomCard.appendChild(labelRow);
+
+        const personRow = document.createElement('div');
+        personRow.className = 'row';
+        personRow.innerHTML = `<label>${t(hass, 'editorRoomPerson')}</label>`;
+        const personInput = document.createElement('input');
+        personInput.type = 'text';
+        personInput.value = room.person ?? '';
+        personInput.addEventListener('change', ev => this._onRoomChange(i, 'person', ev.target.value));
+        personRow.appendChild(personInput);
+        roomCard.appendChild(personRow);
+
+        roomCard.appendChild(this._roomEntityRow(t(hass, 'editorRoomEntity'), i, 'entity', room.entity));
+      }
 
       roomsList.appendChild(roomCard);
     });
