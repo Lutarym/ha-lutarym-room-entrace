@@ -193,7 +193,7 @@ class LutarymRoomStatusCard extends HTMLElement {
     const animMap = {1:'draw',2:'pulse',3:'blink',4:'glow',5:'bounce',6:'flow',7:'wave',8:'chase',9:'dots',10:'runlight'};
     const cfg  = this._config.arrow_animation ?? 1;
     const name = animMap[cfg] ?? animMap[1];
-    const delay1 = '0.5s', delay2 = '1s';
+    const delay1 = '0.5s', delay2 = '1s', delay3 = '1.5s';
 
     const animations = {
 
@@ -260,7 +260,7 @@ class LutarymRoomStatusCard extends HTMLElement {
         .arrow-path { stroke-linecap:round; animation:ap 0.8s linear infinite; }
         .arrow-head { animation:ah 1s infinite; }
         #arrow-bl .arrow-path, #arrow-br .arrow-path { stroke-dasharray:1 14; }
-        #arrow-tr .arrow-path { stroke-dasharray:1 4; }`,
+        #arrow-tr .arrow-path, #arrow-tl .arrow-path { stroke-dasharray:1 4; }`,
 
       // 10. Runlight (a short bright segment travels along the arrow)
       runlight: `
@@ -275,6 +275,7 @@ class LutarymRoomStatusCard extends HTMLElement {
       ${css}
       #arrow-br .arrow-path, #arrow-br .arrow-head { animation-delay:${delay1}; }
       #arrow-tr .arrow-path, #arrow-tr .arrow-head { animation-delay:${delay2}; }
+      #arrow-tl .arrow-path, #arrow-tl .arrow-head { animation-delay:${delay3}; }
     `;
   }
 
@@ -447,11 +448,12 @@ class LutarymRoomStatusCard extends HTMLElement {
 
     // Arrows: only visible when a (non-exit) room is "free"
     const byPos = Object.fromEntries(this._config.rooms.map(r => [r.position, r]));
-    ['bl','br','tr'].forEach(pos => {
-      const arrow = this.shadowRoot.getElementById(`arrow-${pos}`);
+    const AREA_TO_POSITION = { bl: 'bottom-left', br: 'bottom-right', tr: 'top-right', tl: 'top-left' };
+    Object.keys(AREA_TO_POSITION).forEach(area => {
+      const arrow = this.shadowRoot.getElementById(`arrow-${area}`);
       if (!arrow) return;
-      const room = byPos[pos === 'bl' ? 'bottom-left' : pos === 'br' ? 'bottom-right' : 'top-right'];
-      const show  = room && !room.is_exit && this._roomStatus(room) === 'free';
+      const room = byPos[AREA_TO_POSITION[area]];
+      const show = room && !room.is_exit && this._roomStatus(room) === 'free';
       arrow.style.display = show ? 'block' : 'none';
     });
   }
@@ -599,6 +601,14 @@ class LutarymRoomStatusCard extends HTMLElement {
                   stroke="#00C853" stroke-width="8" fill="none"
                   stroke-linecap="butt" stroke-linejoin="miter" pathLength="100" class="arrow-path"/>
             <polygon points="60,55 44,47 44,63" fill="#00C853" class="arrow-head"/>
+          </g>
+
+          <!-- Arrow to top-left room: straight up, 90° left at top -->
+          <g id="arrow-tl" style="display:none" filter="url(#ashadow)">
+            <path d="M30,183 L30,55 L14,55"
+                  stroke="#00C853" stroke-width="8" fill="none"
+                  stroke-linecap="butt" stroke-linejoin="miter" pathLength="100" class="arrow-path"/>
+            <polygon points="0,55 16,47 16,63" fill="#00C853" class="arrow-head"/>
           </g>
 
         </svg>
