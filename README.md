@@ -64,6 +64,10 @@ font_size_label: 1.2                            # optional, em (default 1.2)
 font_size_person: 0.88                          # optional, em (default 0.88)
 font_size_status: 1.05                          # optional, em (default 1.05)
 font_size_closed: 1.2                            # optional, em (default 1.2)
+person_icon_size: 34                              # optional, px (default 34)
+status_show_wayfinding:                         # optional, per-status arrow visibility (default: only "free")
+  free: true
+  reserved: true
 status_labels:                                # optional, override the default status text
   free: Free
   appointment: Appointment
@@ -92,6 +96,16 @@ label, person, and status entity aren't needed for it. Leave a room's
 exit checkbox unchecked (the default) to use that quadrant as a normal
 bookable room. Quadrants with no room configured at all are simply
 left empty.
+
+## Wayfinding arrows
+
+By default, the animated arrows only appear for rooms that are
+currently "free" — matching the classic wayfinding use case. In the
+editor, each status label row has a "Show wayfinding arrows" checkbox
+so you can enable (or disable) the arrows for any status individually —
+e.g. also showing them for "Reserved". The arrow color automatically
+matches whichever status is currently triggering it (green for Free,
+blue for Reserved, etc.) — no separate color setting needed.
 
 ## License
 

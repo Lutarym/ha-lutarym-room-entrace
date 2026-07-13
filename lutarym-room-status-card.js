@@ -30,6 +30,10 @@
  *   font_size_person: 0.88                          # optional, em (default 0.88)
  *   font_size_status: 1.05                          # optional, em (default 1.05)
  *   font_size_closed: 1.2                            # optional, em (default 1.2)
+ *   person_icon_size: 34                              # optional, px (default 34)
+ *   status_show_wayfinding:                         # optional, per-status arrow visibility (default: only "free")
+ *     free: true
+ *     reserved: true
  *   rooms:                                        # REQUIRED, 1-4 rooms
  *     - label: Room 1
  *       person: Jane Doe
@@ -57,6 +61,7 @@ const I18N = {
     statusClosed: 'Closed',
     roomsMissing: '"rooms" (array) is required.',
     editorCorridorWidth: 'Corridor width (px)',
+    editorPersonIconSize: 'Person icon size (px)',
     editorArrowAnimation: 'Arrow animation',
     anim1: '1 – Draw', anim2: '2 – Pulse', anim3: '3 – Blink', anim4: '4 – Glow', anim5: '5 – Bounce',
     anim6: '6 – Flow', anim7: '7 – Wave', anim8: '8 – Chase', anim9: '9 – Dots', anim10: '10 – Runlight',
@@ -65,7 +70,8 @@ const I18N = {
     editorFontPerson: 'Person name',
     editorFontStatus: 'Status text',
     editorFontClosed: 'Closed text',
-    sectionLabels: 'Status Labels (optional overrides)',
+    sectionLabels: 'Status Labels & Wayfinding',
+    editorShowWayfinding: 'Show wayfinding arrows',
     editorLabelFree: 'Label: Free',
     editorLabelAppointment: 'Label: Appointment',
     editorLabelOccupied: 'Label: Occupied',
@@ -95,6 +101,7 @@ const I18N = {
     statusClosed: 'Geschlossen',
     roomsMissing: 'Pflichtfeld "rooms" (Array) fehlt.',
     editorCorridorWidth: 'Flurbreite (px)',
+    editorPersonIconSize: 'Größe Personensymbol (px)',
     editorArrowAnimation: 'Pfeil-Animation',
     anim1: '1 – Zeichnen', anim2: '2 – Pulsieren', anim3: '3 – Blinken', anim4: '4 – Glühen', anim5: '5 – Springen',
     anim6: '6 – Fließen', anim7: '7 – Welle', anim8: '8 – Chase', anim9: '9 – Punkte', anim10: '10 – Lauflicht',
@@ -103,7 +110,8 @@ const I18N = {
     editorFontPerson: 'Personenname',
     editorFontStatus: 'Statustext',
     editorFontClosed: 'Geschlossen-Text',
-    sectionLabels: 'Status-Beschriftungen (optionale Überschreibung)',
+    sectionLabels: 'Status-Beschriftungen & Leitsystem',
+    editorShowWayfinding: 'Leitsystem-Pfeile anzeigen',
     editorLabelFree: 'Beschriftung: Frei',
     editorLabelAppointment: 'Beschriftung: Termin',
     editorLabelOccupied: 'Beschriftung: Belegt',
@@ -228,7 +236,7 @@ class LutarymRoomStatusCard extends HTMLElement {
 
       // 4. Glow
       glow: `
-        @keyframes ap { 0%,100%{opacity:0.6;filter:drop-shadow(0 0 2px #00C853)} 50%{opacity:1;filter:drop-shadow(0 0 10px #00C853) drop-shadow(0 0 20px #00C853)} }
+        @keyframes ap { 0%,100%{opacity:0.6;filter:drop-shadow(0 0 2px var(--ac,#00C853))} 50%{opacity:1;filter:drop-shadow(0 0 10px var(--ac,#00C853)) drop-shadow(0 0 20px var(--ac,#00C853))} }
         @keyframes ah { 0%,100%{opacity:0.6} 50%{opacity:1} }
         .arrow-path { animation:ap 1.8s ease-in-out infinite; }
         .arrow-head { animation:ah 1.8s ease-in-out infinite; }`,
@@ -461,16 +469,28 @@ class LutarymRoomStatusCard extends HTMLElement {
     const personEl = this.shadowRoot.getElementById('corridor-person');
     if (personEl) personEl.style.display = anyActive ? 'block' : 'none';
 
-    // Arrows: only visible when a (non-exit) room is "free"
+    // Arrows: visible when the room's status has wayfinding enabled;
+    // color follows that status's color.
     const byPos = Object.fromEntries(this._config.rooms.map(r => [r.position, r]));
     const AREA_TO_POSITION = { bl: 'bottom-left', br: 'bottom-right', tr: 'top-right', tl: 'top-left' };
     Object.keys(AREA_TO_POSITION).forEach(area => {
       const arrow = this.shadowRoot.getElementById(`arrow-${area}`);
       if (!arrow) return;
       const room = byPos[AREA_TO_POSITION[area]];
-      const show = room && !room.is_exit && this._roomStatus(room) === 'free';
+      const status = room && !room.is_exit ? this._roomStatus(room) : null;
+      const show = !!status && this._statusShowsWayfinding(status);
       arrow.style.display = show ? 'block' : 'none';
+      if (show) arrow.style.setProperty('--ac', STATUS_COLORS[status].bg);
     });
+  }
+
+  // Whether the wayfinding animation (arrows) should show for a given
+  // status. Configurable per status via status_show_wayfinding; defaults
+  // to "free" only, matching the original behavior.
+  _statusShowsWayfinding(status) {
+    const cfg = this._config.status_show_wayfinding;
+    if (cfg && Object.prototype.hasOwnProperty.call(cfg, status)) return !!cfg[status];
+    return status === 'free';
   }
 
   // ── One-time listeners ────────────────────────────────────────────────────
@@ -588,10 +608,11 @@ class LutarymRoomStatusCard extends HTMLElement {
   _corridorHtml(rooms) {
     const byPos = Object.fromEntries(rooms.map(r => [r.position, r]));
     const bottom = this._config.corridor_person_bottom ?? 2;
+    const personSize = this._config.person_icon_size ?? 34;
     return `
       <div class="corridor" style="position:relative">
         <svg id="corridor-person" viewBox="0 0 20 20"
-             style="display:none;position:absolute;left:50%;bottom:calc(${bottom}px * var(--scale,1));width:calc(34px * var(--scale,1));height:calc(34px * var(--scale,1));transform:translateX(-50%)">
+             style="display:none;position:absolute;left:50%;bottom:calc(${bottom}px * var(--scale,1));width:calc(${personSize}px * var(--scale,1));height:calc(${personSize}px * var(--scale,1));transform:translateX(-50%)">
           <path d="M10,4A4,4 0 0,1 14,8A4,4 0 0,1 10,12A4,4 0 0,1 6,8A4,4 0 0,1 10,4M10,13C13.87,13 17,14.57 17,16.5V18H3V16.5C3,14.57 6.13,13 10,13Z" fill="#455A64"/>
         </svg>
         <svg viewBox="0 0 60 220" xmlns="http://www.w3.org/2000/svg"
@@ -609,33 +630,33 @@ class LutarymRoomStatusCard extends HTMLElement {
           <!-- Arrow to bottom-left room: straight up, 90° left -->
           <g id="arrow-bl" style="display:none" filter="url(#ashadow)">
             <path d="M30,183 L30,165 L14,165"
-                  stroke="#00C853" stroke-width="8" fill="none"
+                  stroke="var(--ac,#00C853)" stroke-width="8" fill="none"
                   stroke-linecap="butt" stroke-linejoin="miter" pathLength="100" class="arrow-path"/>
-            <polygon points="0,165 16,157 16,173" fill="#00C853" class="arrow-head"/>
+            <polygon points="0,165 16,157 16,173" fill="var(--ac,#00C853)" class="arrow-head"/>
           </g>
 
           <!-- Arrow to bottom-right room: straight up, 90° right -->
           <g id="arrow-br" style="display:none" filter="url(#ashadow)">
             <path d="M30,183 L30,165 L46,165"
-                  stroke="#00C853" stroke-width="8" fill="none"
+                  stroke="var(--ac,#00C853)" stroke-width="8" fill="none"
                   stroke-linecap="butt" stroke-linejoin="miter" pathLength="100" class="arrow-path"/>
-            <polygon points="60,165 44,157 44,173" fill="#00C853" class="arrow-head"/>
+            <polygon points="60,165 44,157 44,173" fill="var(--ac,#00C853)" class="arrow-head"/>
           </g>
 
           <!-- Arrow to top-right room: straight up, 90° right at top -->
           <g id="arrow-tr" style="display:none" filter="url(#ashadow)">
             <path d="M30,183 L30,55 L46,55"
-                  stroke="#00C853" stroke-width="8" fill="none"
+                  stroke="var(--ac,#00C853)" stroke-width="8" fill="none"
                   stroke-linecap="butt" stroke-linejoin="miter" pathLength="100" class="arrow-path"/>
-            <polygon points="60,55 44,47 44,63" fill="#00C853" class="arrow-head"/>
+            <polygon points="60,55 44,47 44,63" fill="var(--ac,#00C853)" class="arrow-head"/>
           </g>
 
           <!-- Arrow to top-left room: straight up, 90° left at top -->
           <g id="arrow-tl" style="display:none" filter="url(#ashadow)">
             <path d="M30,183 L30,55 L14,55"
-                  stroke="#00C853" stroke-width="8" fill="none"
+                  stroke="var(--ac,#00C853)" stroke-width="8" fill="none"
                   stroke-linecap="butt" stroke-linejoin="miter" pathLength="100" class="arrow-path"/>
-            <polygon points="0,55 16,47 16,63" fill="#00C853" class="arrow-head"/>
+            <polygon points="0,55 16,47 16,63" fill="var(--ac,#00C853)" class="arrow-head"/>
           </g>
 
         </svg>
@@ -686,6 +707,13 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     else labels[key] = value;
     if (Object.keys(labels).length) this._config.status_labels = labels;
     else delete this._config.status_labels;
+    this._fireChanged();
+  }
+
+  _onWayfindingToggle(key, checked) {
+    const map = { ...(this._config.status_show_wayfinding || {}) };
+    map[key] = checked;
+    this._config.status_show_wayfinding = map;
     this._fireChanged();
   }
 
@@ -799,14 +827,30 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
 
   _statusLabelRow(label, key, value, placeholder) {
     const wrap = document.createElement('div');
-    wrap.className = 'row';
+    wrap.className = 'row status-label-row';
     wrap.innerHTML = `<label>${label}</label>`;
+
+    const controls = document.createElement('div');
+    controls.className = 'status-label-controls';
+
     const input = document.createElement('input');
     input.type = 'text';
     input.value = value ?? '';
     if (placeholder) input.placeholder = placeholder;
     input.addEventListener('change', ev => this._onStatusLabelChange(key, ev.target.value));
-    wrap.appendChild(input);
+    controls.appendChild(input);
+
+    const arrowWrap = document.createElement('label');
+    arrowWrap.className = 'arrow-toggle';
+    const arrowCheckbox = document.createElement('input');
+    arrowCheckbox.type = 'checkbox';
+    arrowCheckbox.checked = this._config.status_show_wayfinding?.[key] ?? (key === 'free');
+    arrowCheckbox.addEventListener('change', ev => this._onWayfindingToggle(key, ev.target.checked));
+    arrowWrap.appendChild(arrowCheckbox);
+    arrowWrap.appendChild(document.createTextNode(t(this._hass, 'editorShowWayfinding')));
+    controls.appendChild(arrowWrap);
+
+    wrap.appendChild(controls);
     return wrap;
   }
 
@@ -833,6 +877,10 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
           color: var(--primary-text-color); font-size: 14px; box-sizing: border-box;
         }
         .checkbox-row { flex-direction: row; align-items: center; gap: 8px; }
+        .status-label-controls { display: flex; align-items: center; gap: 10px; }
+        .status-label-controls input[type="text"] { flex: 1; min-width: 0; }
+        .arrow-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; cursor: pointer; }
+        .arrow-toggle input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; margin: 0; }
         .checkbox-row label { font-weight: 400; }
         .row-pair { display: flex; gap: 16px; }
         .row-pair > .row { flex: 1; min-width: 0; }
@@ -879,14 +927,15 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
 
     form.appendChild(this._sideBySide(
       this._numberRow(t(hass, 'editorCorridorWidth'), 'corridor_width', cfg.corridor_width ?? 68, 68),
-      this._selectRow(t(hass, 'editorArrowAnimation'), 'arrow_animation', cfg.arrow_animation ?? 1, [
-        { value: '1', label: t(hass, 'anim1') }, { value: '2', label: t(hass, 'anim2') },
-        { value: '3', label: t(hass, 'anim3') }, { value: '4', label: t(hass, 'anim4') },
-        { value: '5', label: t(hass, 'anim5') }, { value: '6', label: t(hass, 'anim6') },
-        { value: '7', label: t(hass, 'anim7') }, { value: '8', label: t(hass, 'anim8') },
-        { value: '9', label: t(hass, 'anim9') }, { value: '10', label: t(hass, 'anim10') },
-      ], v => this._onChange('arrow_animation', v, true)),
+      this._numberRow(t(hass, 'editorPersonIconSize'), 'person_icon_size', cfg.person_icon_size ?? 34, 34),
     ));
+    form.appendChild(this._selectRow(t(hass, 'editorArrowAnimation'), 'arrow_animation', cfg.arrow_animation ?? 1, [
+      { value: '1', label: t(hass, 'anim1') }, { value: '2', label: t(hass, 'anim2') },
+      { value: '3', label: t(hass, 'anim3') }, { value: '4', label: t(hass, 'anim4') },
+      { value: '5', label: t(hass, 'anim5') }, { value: '6', label: t(hass, 'anim6') },
+      { value: '7', label: t(hass, 'anim7') }, { value: '8', label: t(hass, 'anim8') },
+      { value: '9', label: t(hass, 'anim9') }, { value: '10', label: t(hass, 'anim10') },
+    ], v => this._onChange('arrow_animation', v, true)));
 
     const fontLabel = document.createElement('div');
     fontLabel.className = 'section-label';
@@ -906,14 +955,10 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     labelsLabel.textContent = t(hass, 'sectionLabels');
     form.appendChild(labelsLabel);
     const sl = cfg.status_labels || {};
-    form.appendChild(this._sideBySide(
-      this._statusLabelRow(t(hass, 'editorLabelFree'), 'free', sl.free, t(hass, 'statusFree')),
-      this._statusLabelRow(t(hass, 'editorLabelAppointment'), 'appointment', sl.appointment, t(hass, 'statusAppointment')),
-    ));
-    form.appendChild(this._sideBySide(
-      this._statusLabelRow(t(hass, 'editorLabelOccupied'), 'occupied', sl.occupied, t(hass, 'statusOccupied')),
-      this._statusLabelRow(t(hass, 'editorLabelReserved'), 'reserved', sl.reserved, t(hass, 'statusReserved')),
-    ));
+    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelFree'), 'free', sl.free, t(hass, 'statusFree')));
+    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelAppointment'), 'appointment', sl.appointment, t(hass, 'statusAppointment')));
+    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelOccupied'), 'occupied', sl.occupied, t(hass, 'statusOccupied')));
+    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelReserved'), 'reserved', sl.reserved, t(hass, 'statusReserved')));
     form.appendChild(this._statusLabelRow(t(hass, 'editorLabelClosed'), 'closed', sl.closed, t(hass, 'statusClosed')));
 
     const sectionLabel = document.createElement('div');
