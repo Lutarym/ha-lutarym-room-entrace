@@ -10,7 +10,10 @@ fully bilingual (German/English), following `hass.language`
 automatically.
 
 Status is stored in Home Assistant via `input_boolean` helper
-entities — one per room and status — **not** in `localStorage`.
+entities — one per room and status — **not** in `localStorage`. You
+pick the exact entities per room directly in the visual editor (entity
+pickers, filtered to the `input_boolean` domain) — no naming convention
+to remember.
 
 ## Installation via HACS
 
@@ -37,29 +40,22 @@ when none of the other three are on.
 
 **Settings → Devices & Services → Helpers → + Add Helper → Toggle**
 
-For a room with `id: room1`, create:
-
-- `input_boolean.room1_occupied`
-- `input_boolean.room1_appointment`
-- `input_boolean.room1_free`
-
-If you set `entity_prefix: "office_"`, the IDs become
-`input_boolean.office_room1_occupied` etc. — useful to avoid collisions
-if you run several of these cards on one dashboard. The visual editor
-shows this same reminder directly above the room list, with your
-current prefix already filled in.
+Name them however you like (e.g. `input_boolean.meeting_room_occupied`)
+— then select them per room in the visual editor's entity pickers. The
+editor shows this same reminder directly above the room list.
 
 ## Usage
 
 Add via **Edit Dashboard → Add Card → "Room Status by Lutarym"** —
 opens the visual configuration form directly, including a dynamic room
-list (add/remove up to 4 rooms, each with its own position).
+list (add/remove up to 4 rooms, each with its own position and three
+entity pickers).
 
 ```yaml
 type: custom:lutarym-room-status-card
 corridor_width: 68                          # optional, px (default 68)
-entity_prefix: ''                            # optional, namespaces input_boolean IDs
-show_emergency_exit: true                     # optional, shown top-left if no room is placed there
+show_emergency_exit: true                     # optional, default true
+emergency_exit_position: top-left              # optional, default top-left — top-left | top-right | bottom-left | bottom-right
 arrow_animation: 1                             # optional, 1-10 (Draw/Pulse/Blink/Glow/Bounce/Flow/Wave/Chase/Dots/Runlight)
 font_size_label: 1.2                            # optional, em (default 1.2)
 font_size_person: 0.88                          # optional, em (default 0.88)
@@ -70,19 +66,34 @@ status_labels:                                # optional, override the default s
   occupied: Occupied
   closed: Closed
 rooms:                                        # REQUIRED, 1-4 rooms
-  - id: room1
-    label: Room 1
+  - label: Room 1
     person: Jane Doe
     position: bottom-left                    # top-left | top-right | bottom-left | bottom-right
-  - id: room2
-    label: Room 2
+    entity_occupied: input_boolean.room1_occupied
+    entity_appointment: input_boolean.room1_appointment
+    entity_free: input_boolean.room1_free
+  - label: Room 2
     person: John Smith
     position: top-right
-  - id: room3
-    label: Room 3
+    entity_occupied: input_boolean.room2_occupied
+    entity_appointment: input_boolean.room2_appointment
+    entity_free: input_boolean.room2_free
+  - label: Room 3
     person: Alex Miller
     position: bottom-right
+    entity_occupied: input_boolean.room3_occupied
+    entity_appointment: input_boolean.room3_appointment
+    entity_free: input_boolean.room3_free
 ```
+
+## Emergency Exit quadrant
+
+`emergency_exit_position` picks which of the 4 corners shows the
+"Emergency Exit" label — but only if no room is placed there. If you
+either uncheck "Show Emergency Exit" or simply assign a room to that
+same position, the room takes over that spot automatically and the
+exit label disappears — no extra configuration needed to "free up" the
+quadrant.
 
 ## License
 
