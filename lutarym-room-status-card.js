@@ -715,13 +715,13 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     return wrap;
   }
 
-  _numberRow(label, field, value, placeholder) {
+  _numberRow(label, field, value, placeholder, step) {
     const wrap = document.createElement('div');
     wrap.className = 'row';
     wrap.innerHTML = `<label>${label}</label>`;
     const input = document.createElement('input');
     input.type = 'number';
-    input.step = 'any';
+    input.step = step ?? 'any';
     if (value != null) input.value = value;
     if (placeholder != null) input.placeholder = String(placeholder);
     input.addEventListener('change', ev => this._onChange(field, ev.target.value, true));
@@ -879,12 +879,12 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     fontLabel.textContent = t(hass, 'sectionFontSizes');
     form.appendChild(fontLabel);
     form.appendChild(this._sideBySide(
-      this._numberRow(t(hass, 'editorFontLabel'), 'font_size_label', cfg.font_size_label ?? 1.2, 1.2),
-      this._numberRow(t(hass, 'editorFontPerson'), 'font_size_person', cfg.font_size_person ?? 0.88, 0.88),
+      this._numberRow(t(hass, 'editorFontLabel'), 'font_size_label', cfg.font_size_label ?? 1.2, 1.2, '0.05'),
+      this._numberRow(t(hass, 'editorFontPerson'), 'font_size_person', cfg.font_size_person ?? 0.88, 0.88, '0.05'),
     ));
     form.appendChild(this._sideBySide(
-      this._numberRow(t(hass, 'editorFontStatus'), 'font_size_status', cfg.font_size_status ?? 1.05, 1.05),
-      this._numberRow(t(hass, 'editorFontClosed'), 'font_size_closed', cfg.font_size_closed ?? 1.2, 1.2),
+      this._numberRow(t(hass, 'editorFontStatus'), 'font_size_status', cfg.font_size_status ?? 1.05, 1.05, '0.05'),
+      this._numberRow(t(hass, 'editorFontClosed'), 'font_size_closed', cfg.font_size_closed ?? 1.2, 1.2, '0.05'),
     ));
 
     const labelsLabel = document.createElement('div');
