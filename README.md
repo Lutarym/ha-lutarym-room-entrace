@@ -2,7 +2,7 @@
 
 Lovelace Custom Card for Home Assistant — an office floor-plan card
 showing up to 4 rooms arranged around a central corridor, each colored
-by status (occupied / appointment / free / closed), with an animated
+by status (occupied / appointment / free / reserved / closed), with an animated
 arrow pointing toward whichever room is currently "free", a
 walking-person icon in the corridor when any room is active, and a
 popup (tap a room) to change its status. The card and its editor are
@@ -67,6 +67,7 @@ status_labels:                                # optional, override the default s
   free: Free
   appointment: Appointment
   occupied: Occupied
+  reserved: Reserved
   closed: Closed
 rooms:                                        # REQUIRED, 1-4 rooms
   - label: Room 1

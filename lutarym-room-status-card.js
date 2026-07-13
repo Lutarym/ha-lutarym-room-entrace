@@ -4,7 +4,7 @@
  *
  * Shows up to 4 rooms arranged around a central corridor (top-left,
  * top-right, bottom-left, bottom-right), each colored by status
- * (occupied / appointment / free / closed), with an animated arrow
+ * (occupied / appointment / free / reserved / closed), with an animated arrow
  * pointing toward whichever room is currently "free", a walking-person
  * icon in the corridor when any room is active, and a popup (tap a room)
  * to change its status. Each room's status is stored in a single text or
@@ -19,7 +19,7 @@
  *   3. Clear your browser cache (Ctrl+F5)
  *   4. Create one text/select helper per room: Settings > Devices &
  *      Services > Helpers > + Add Helper > Text (or Dropdown). Its state
- *      must be exactly "occupied", "appointment", "free", or "closed".
+ *      must be exactly "occupied", "appointment", "free", "reserved", or "closed".
  *      Then select it per room in the visual editor.
  *
  * CONFIGURATION
@@ -52,6 +52,7 @@ const I18N = {
     statusFree: 'Free',
     statusAppointment: 'Appointment',
     statusOccupied: 'Occupied',
+    statusReserved: 'Reserved',
     statusClosed: 'Closed',
     roomsMissing: '"rooms" (array) is required.',
     editorCorridorWidth: 'Corridor width (px)',
@@ -66,10 +67,11 @@ const I18N = {
     editorLabelFree: 'Label: Free',
     editorLabelAppointment: 'Label: Appointment',
     editorLabelOccupied: 'Label: Occupied',
+    editorLabelReserved: 'Label: Reserved',
     editorLabelClosed: 'Label: Closed',
     sectionRooms: 'Rooms ({count}/4)',
     roomsHint: 'Up to 4 rooms, one per corner of the floor plan. Mark one as the Emergency Exit instead of a bookable room if needed.',
-    helpersHint: 'For each room, create one text or select helper in Home Assistant that holds the status as text: Settings → Devices & Services → Helpers → + Add Helper → Text (or Dropdown). Its state must be exactly "occupied", "appointment", "free", or "closed". Then select it below.',
+    helpersHint: 'For each room, create one text or select helper in Home Assistant that holds the status as text: Settings → Devices & Services → Helpers → + Add Helper → Text (or Dropdown). Its state must be exactly "occupied", "appointment", "free", "reserved", or "closed". Then select it below.',
     roomHeaderLabel: 'Room {n}',
     removeLabel: 'Remove',
     addRoomLabel: '+ Add room',
@@ -80,13 +82,14 @@ const I18N = {
     editorRoomIsExit: 'This is the Emergency Exit (not a bookable room)',
     posTopLeft: 'Top left', posTopRight: 'Top right', posBottomLeft: 'Bottom left', posBottomRight: 'Bottom right',
     cardName: 'Room Status by Lutarym',
-    cardDescription: 'Office floor-plan card showing room status (occupied/appointment/free/closed) with animated wayfinding arrows and a tap-to-change popup.',
+    cardDescription: 'Office floor-plan card showing room status (occupied/appointment/free/reserved/closed) with animated wayfinding arrows and a tap-to-change popup.',
   },
   de: {
     emergencyExit: 'Notausgang',
     statusFree: 'Frei',
     statusAppointment: 'Termin',
     statusOccupied: 'Belegt',
+    statusReserved: 'Reserviert',
     statusClosed: 'Geschlossen',
     roomsMissing: 'Pflichtfeld "rooms" (Array) fehlt.',
     editorCorridorWidth: 'Flurbreite (px)',
@@ -101,10 +104,11 @@ const I18N = {
     editorLabelFree: 'Beschriftung: Frei',
     editorLabelAppointment: 'Beschriftung: Termin',
     editorLabelOccupied: 'Beschriftung: Belegt',
+    editorLabelReserved: 'Beschriftung: Reserviert',
     editorLabelClosed: 'Beschriftung: Geschlossen',
     sectionRooms: 'Räume ({count}/4)',
     roomsHint: 'Bis zu 4 Räume, je einer pro Ecke des Grundrisses. Einen davon kannst du statt als buchbaren Raum als Notausgang markieren.',
-    helpersHint: 'Für jeden Raum wird ein Text- oder Auswahl-Helfer in Home Assistant benötigt, der den Status als Text enthält: Einstellungen → Geräte & Dienste → Helfer → + Helfer hinzufügen → Text (oder Dropdown). Der Zustand muss genau "occupied", "appointment", "free" oder "closed" lauten. Anschließend unten auswählen.',
+    helpersHint: 'Für jeden Raum wird ein Text- oder Auswahl-Helfer in Home Assistant benötigt, der den Status als Text enthält: Einstellungen → Geräte & Dienste → Helfer → + Helfer hinzufügen → Text (oder Dropdown). Der Zustand muss genau "occupied", "appointment", "free", "reserved" oder "closed" lauten. Anschließend unten auswählen.',
     roomHeaderLabel: 'Raum {n}',
     removeLabel: 'Entfernen',
     addRoomLabel: '+ Raum hinzufügen',
@@ -136,6 +140,7 @@ const STATUS_COLORS = {
   occupied:    { bg: '#F50000', dark: '#B00000' },
   appointment: { bg: '#FFD600', dark: '#F9A800' },
   free:        { bg: '#00C853', dark: '#009624' },
+  reserved:    { bg: '#2196F3', dark: '#0D47A1' },
   closed:      { bg: '#546E7A', dark: '#37474F' },
 };
 
@@ -300,6 +305,7 @@ class LutarymRoomStatusCard extends HTMLElement {
       free:        cfg.status_labels?.free        ?? t(hass, 'statusFree'),
       appointment: cfg.status_labels?.appointment  ?? t(hass, 'statusAppointment'),
       occupied:    cfg.status_labels?.occupied     ?? t(hass, 'statusOccupied'),
+      reserved:    cfg.status_labels?.reserved     ?? t(hass, 'statusReserved'),
       closed:      cfg.status_labels?.closed       ?? t(hass, 'statusClosed'),
     };
 
@@ -369,9 +375,9 @@ class LutarymRoomStatusCard extends HTMLElement {
           color:#fff; font-size:1.05em; font-weight:700;
           text-align:center; margin-bottom:18px;
         }
-        .popup-buttons { display:flex; gap:10px; }
+        .popup-buttons { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .popup-btn {
-          flex:1; padding:10px 4px;
+          padding:10px 4px;
           border:2px solid var(--c); border-radius:8px;
           background:transparent; color:#fff;
           font-size:.95em; font-weight:700; cursor:pointer;
@@ -395,6 +401,8 @@ class LutarymRoomStatusCard extends HTMLElement {
                 style="--c:#FFD600;--ct:#1A1A1A">${this._labels.appointment}</button>
               <button class="popup-btn" id="btn-occupied"
                 style="--c:#F50000">${this._labels.occupied}</button>
+              <button class="popup-btn" id="btn-reserved"
+                style="--c:#2196F3">${this._labels.reserved}</button>
             </div>
           </div>
         </div>
@@ -467,7 +475,7 @@ class LutarymRoomStatusCard extends HTMLElement {
     });
 
     // Popup buttons
-    ['free','appointment','occupied'].forEach(action => {
+    ['free','appointment','occupied','reserved'].forEach(action => {
       const btn = this.shadowRoot.getElementById(`btn-${action}`);
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -502,7 +510,7 @@ class LutarymRoomStatusCard extends HTMLElement {
   _refreshPopupBtns() {
     const room = this._config.rooms.find(r => r.position === this._popupId);
     const s = this._roomStatus(room);
-    ['free','appointment','occupied'].forEach(a => {
+    ['free','appointment','occupied','reserved'].forEach(a => {
       this.shadowRoot.getElementById(`btn-${a}`)
         .classList.toggle('active', a === s);
     });
@@ -518,7 +526,8 @@ class LutarymRoomStatusCard extends HTMLElement {
   _roomStatus(room) {
     if (!room || !room.entity || !this._hass) return 'closed';
     const state = this._hass.states[room.entity]?.state;
-    return (state === 'occupied' || state === 'appointment' || state === 'free') ? state : 'closed';
+    const VALID = ['occupied', 'appointment', 'free', 'reserved'];
+    return VALID.includes(state) ? state : 'closed';
   }
 
   // Writes the new status into the room's single status entity — supports
@@ -882,8 +891,9 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     ));
     form.appendChild(this._sideBySide(
       this._statusLabelRow(t(hass, 'editorLabelOccupied'), 'occupied', sl.occupied, t(hass, 'statusOccupied')),
-      this._statusLabelRow(t(hass, 'editorLabelClosed'), 'closed', sl.closed, t(hass, 'statusClosed')),
+      this._statusLabelRow(t(hass, 'editorLabelReserved'), 'reserved', sl.reserved, t(hass, 'statusReserved')),
     ));
+    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelClosed'), 'closed', sl.closed, t(hass, 'statusClosed')));
 
     const sectionLabel = document.createElement('div');
     sectionLabel.className = 'section-label';
@@ -994,7 +1004,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'lutarym-room-status-card',
   name: 'Room Status by Lutarym',
-  description: 'Office floor-plan card showing room status (occupied/appointment/free/closed) with animated wayfinding arrows and a tap-to-change popup.',
+  description: 'Office floor-plan card showing room status (occupied/appointment/free/reserved/closed) with animated wayfinding arrows and a tap-to-change popup.',
 });
 
 console.info(
