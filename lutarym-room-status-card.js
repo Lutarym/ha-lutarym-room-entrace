@@ -148,11 +148,11 @@ function t(hass, key, vars) {
 
 // Status colors are language-independent; labels come from I18N/status_labels.
 const STATUS_COLORS = {
-  occupied:    { bg: '#F50000', dark: '#B00000' },
-  appointment: { bg: '#FFD600', dark: '#F9A800' },
-  free:        { bg: '#00C853', dark: '#009624' },
-  reserved:    { bg: '#2196F3', dark: '#0D47A1' },
-  closed:      { bg: '#546E7A', dark: '#37474F' },
+  belegt:       { bg: '#F50000', dark: '#B00000' },
+  termin:       { bg: '#FFD600', dark: '#F9A800' },
+  frei:         { bg: '#00C853', dark: '#009624' },
+  reserviert:   { bg: '#2196F3', dark: '#0D47A1' },
+  geschlossen:  { bg: '#546E7A', dark: '#37474F' },
 };
 
 function esc(s) {
@@ -314,11 +314,11 @@ class LutarymRoomStatusCard extends HTMLElement {
 
     // Labels from config (with i18n defaults)
     this._labels = {
-      free:        cfg.status_labels?.free        ?? t(hass, 'statusFree'),
-      appointment: cfg.status_labels?.appointment  ?? t(hass, 'statusAppointment'),
-      occupied:    cfg.status_labels?.occupied     ?? t(hass, 'statusOccupied'),
-      reserved:    cfg.status_labels?.reserved     ?? t(hass, 'statusReserved'),
-      closed:      cfg.status_labels?.closed       ?? t(hass, 'statusClosed'),
+      frei:         cfg.status_labels?.frei         ?? t(hass, 'statusFree'),
+      termin:       cfg.status_labels?.termin       ?? t(hass, 'statusAppointment'),
+      belegt:       cfg.status_labels?.belegt       ?? t(hass, 'statusOccupied'),
+      reserviert:   cfg.status_labels?.reserviert   ?? t(hass, 'statusReserved'),
+      geschlossen:  cfg.status_labels?.geschlossen ?? t(hass, 'statusClosed'),
     };
 
     const AREA_MAP = { 'top-left': 'tl', 'top-right': 'tr', 'bottom-left': 'bl', 'bottom-right': 'br' };
@@ -408,16 +408,16 @@ class LutarymRoomStatusCard extends HTMLElement {
           <div class="popup-box">
             <div class="popup-title" id="popup-title"></div>
             <div class="popup-buttons">
-              <button class="popup-btn" id="btn-free"
-                style="--c:#00C853">${this._labels.free}</button>
-              <button class="popup-btn" id="btn-appointment"
-                style="--c:#FFD600;--ct:#1A1A1A">${this._labels.appointment}</button>
-              <button class="popup-btn" id="btn-occupied"
-                style="--c:#F50000">${this._labels.occupied}</button>
-              <button class="popup-btn" id="btn-reserved"
-                style="--c:#2196F3">${this._labels.reserved}</button>
-              <button class="popup-btn wide" id="btn-closed"
-                style="--c:#546E7A">${this._labels.closed}</button>
+              <button class="popup-btn" id="btn-frei"
+                style="--c:#00C853">${this._labels.frei}</button>
+              <button class="popup-btn" id="btn-termin"
+                style="--c:#FFD600;--ct:#1A1A1A">${this._labels.termin}</button>
+              <button class="popup-btn" id="btn-belegt"
+                style="--c:#F50000">${this._labels.belegt}</button>
+              <button class="popup-btn" id="btn-reserviert"
+                style="--c:#2196F3">${this._labels.reserviert}</button>
+              <button class="popup-btn wide" id="btn-geschlossen"
+                style="--c:#546E7A">${this._labels.geschlossen}</button>
             </div>
           </div>
         </div>
@@ -451,21 +451,21 @@ class LutarymRoomStatusCard extends HTMLElement {
       if (!el) continue;
       const s = this._roomStatus(room);
       const { bg, dark } = STATUS_COLORS[s];
-      const closed = s === 'closed';
+      const closed = s === 'geschlossen';
       const label = closed ? '' : (this._labels[s] ?? '');
       el.style.background = `linear-gradient(160deg,${bg},${dark})`;
-      el.style.color       = s === 'appointment' ? '#1A1A1A' : '#fff';
+      el.style.color       = s === 'termin' ? '#1A1A1A' : '#fff';
       el.querySelector('.room-top').style.visibility    = closed ? 'hidden' : 'visible';
       el.querySelector('.room-footer').style.visibility = closed ? 'hidden' : 'visible';
       el.querySelector('.room-status').textContent = label;
       const closedEl = el.querySelector('.room-closed');
-      closedEl.textContent  = closed ? this._labels.closed : '';
+      closedEl.textContent  = closed ? this._labels.geschlossen : '';
       closedEl.style.display = closed ? 'flex' : 'none';
     }
     if (this._popupId) this._refreshPopupBtns();
 
     // Person icon: visible when at least 1 (non-exit) room is active
-    const anyActive  = this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) !== 'closed');
+    const anyActive  = this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) !== 'geschlossen');
     const personEl = this.shadowRoot.getElementById('corridor-person');
     if (personEl) personEl.style.display = anyActive ? 'block' : 'none';
 
@@ -486,11 +486,11 @@ class LutarymRoomStatusCard extends HTMLElement {
 
   // Whether the wayfinding animation (arrows) should show for a given
   // status. Configurable per status via status_show_wayfinding; defaults
-  // to "free" only, matching the original behavior.
+  // to "frei" only, matching the original behavior.
   _statusShowsWayfinding(status) {
     const cfg = this._config.status_show_wayfinding;
     if (cfg && Object.prototype.hasOwnProperty.call(cfg, status)) return !!cfg[status];
-    return status === 'free';
+    return status === 'frei';
   }
 
   // ── One-time listeners ────────────────────────────────────────────────────
@@ -502,7 +502,7 @@ class LutarymRoomStatusCard extends HTMLElement {
     });
 
     // Popup buttons
-    ['free','appointment','occupied','reserved'].forEach(action => {
+    ['frei','termin','belegt','reserviert'].forEach(action => {
       const btn = this.shadowRoot.getElementById(`btn-${action}`);
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -515,15 +515,15 @@ class LutarymRoomStatusCard extends HTMLElement {
       });
     });
 
-    // "Closed" button: always sets the room to closed directly (no toggle)
-    const closedBtn = this.shadowRoot.getElementById('btn-closed');
+    // "Geschlossen" button: always sets the room to geschlossen directly (no toggle)
+    const closedBtn = this.shadowRoot.getElementById('btn-geschlossen');
     closedBtn.addEventListener('click', e => {
       e.stopPropagation();
       if (!this._hass || !this._popupId) return;
       const room = this._config.rooms.find(r => r.position === this._popupId);
       if (!room) return;
       this._closePopup();
-      this._setRoomStatus(room, 'closed');
+      this._setRoomStatus(room, 'geschlossen');
     });
 
     // Close overlay on click outside the popup box
@@ -548,7 +548,7 @@ class LutarymRoomStatusCard extends HTMLElement {
   _refreshPopupBtns() {
     const room = this._config.rooms.find(r => r.position === this._popupId);
     const s = this._roomStatus(room);
-    ['free','appointment','occupied','reserved','closed'].forEach(a => {
+    ['frei','termin','belegt','reserviert','geschlossen'].forEach(a => {
       this.shadowRoot.getElementById(`btn-${a}`)
         .classList.toggle('active', a === s);
     });
@@ -844,7 +844,7 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     arrowWrap.className = 'arrow-toggle';
     const arrowCheckbox = document.createElement('input');
     arrowCheckbox.type = 'checkbox';
-    arrowCheckbox.checked = this._config.status_show_wayfinding?.[key] ?? (key === 'free');
+    arrowCheckbox.checked = this._config.status_show_wayfinding?.[key] ?? (key === 'frei');
     arrowCheckbox.addEventListener('change', ev => this._onWayfindingToggle(key, ev.target.checked));
     arrowWrap.appendChild(arrowCheckbox);
     arrowWrap.appendChild(document.createTextNode(t(this._hass, 'editorShowWayfinding')));
