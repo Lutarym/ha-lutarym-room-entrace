@@ -608,9 +608,20 @@ class LutarymRoomStatusCard extends HTMLElement {
       ? true
       : this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) === showWhen);
 
+    const imgEl = this.shadowRoot.getElementById('warning-image');
+    const txtEl = this.shadowRoot.getElementById('warning-text');
+
     if (shouldShow) {
-      this.shadowRoot.getElementById('warning-image').src = imageSrc;
-      this.shadowRoot.getElementById('warning-text').textContent = text;
+      // If the image cannot be loaded (wrong path, file missing), hide the
+      // image element so it does not occupy space and the text stays visible.
+      imgEl.onerror = () => { imgEl.style.display = 'none'; };
+      imgEl.onload  = () => { imgEl.style.display = ''; };
+      imgEl.alt = text;
+      if (imgEl.getAttribute('src') !== imageSrc) {
+        imgEl.style.display = '';
+        imgEl.src = imageSrc;
+      }
+      txtEl.textContent = text;
       banner.style.display = 'flex';
     } else {
       banner.style.display = 'none';
