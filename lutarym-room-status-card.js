@@ -55,7 +55,12 @@ const I18N = {
   en: {
     emergencyExit: 'Emergency Exit',
     statusFree: 'Free',
-    statusAppointment: 'Appointment',
+    statusAppointment: 'Not occupied',
+    sectionInfoBox: 'Text box',
+    editorInfoBoxEntity: 'Text box entity',
+    editorInfoBoxFontSize: 'Font size (px)',
+    editorInfoBoxHeight: 'Height (px)',
+    editorInfoBoxHint: 'The text box shows this entity\u2019s state. When the state is empty, the box is hidden.',
     statusOccupied: 'Occupied',
     statusReserved: 'Reserved',
     statusClosed: 'Closed',
@@ -73,7 +78,7 @@ const I18N = {
     sectionLabels: 'Status Labels & Wayfinding',
     editorShowWayfinding: 'Show wayfinding arrows',
     editorLabelFree: 'Label: Free',
-    editorLabelAppointment: 'Label: Appointment',
+    editorLabelAppointment: 'Label: Not occupied',
     editorLabelOccupied: 'Label: Occupied',
     editorLabelReserved: 'Label: Reserved',
     editorLabelClosed: 'Label: Closed',
@@ -95,7 +100,12 @@ const I18N = {
   de: {
     emergencyExit: 'Notausgang',
     statusFree: 'Frei',
-    statusAppointment: 'Termin',
+    statusAppointment: 'Nicht besetzt',
+    sectionInfoBox: 'Textfeld',
+    editorInfoBoxEntity: 'Entit\u00e4t f\u00fcr Textfeld',
+    editorInfoBoxFontSize: 'Schriftgr\u00f6\u00dfe (px)',
+    editorInfoBoxHeight: 'H\u00f6he (px)',
+    editorInfoBoxHint: 'Das Textfeld zeigt den Zustand dieser Entit\u00e4t. Ist der Zustand leer, wird das Feld ausgeblendet.',
     statusOccupied: 'Belegt',
     statusReserved: 'Reserviert',
     statusClosed: 'Geschlossen',
@@ -113,7 +123,7 @@ const I18N = {
     sectionLabels: 'Status-Beschriftungen & Leitsystem',
     editorShowWayfinding: 'Leitsystem-Pfeile anzeigen',
     editorLabelFree: 'Beschriftung: Frei',
-    editorLabelAppointment: 'Beschriftung: Termin',
+    editorLabelAppointment: 'Beschriftung: Nicht besetzt',
     editorLabelOccupied: 'Beschriftung: Belegt',
     editorLabelReserved: 'Beschriftung: Reserviert',
     editorLabelClosed: 'Beschriftung: Geschlossen',
@@ -130,7 +140,7 @@ const I18N = {
     editorRoomIsExit: 'Dies ist der Notausgang (kein buchbarer Raum)',
     posTopLeft: 'Oben links', posTopRight: 'Oben rechts', posBottomLeft: 'Unten links', posBottomRight: 'Unten rechts',
     cardName: 'Room Status by Lutarym',
-    cardDescription: 'Grundriss-Karte mit Raumstatus (Belegt/Termin/Frei/Geschlossen), animierten Wegweiser-Pfeilen und Popup zum Statuswechsel per Tap.',
+    cardDescription: 'Grundriss-Karte mit Raumstatus (Belegt/Nicht besetzt/Frei/Reserviert/Geschlossen), animierten Wegweiser-Pfeilen und Popup zum Statuswechsel per Tap.',
   },
 };
 
@@ -149,7 +159,7 @@ function t(hass, key, vars) {
 // Status colors are language-independent; labels come from I18N/status_labels.
 const STATUS_COLORS = {
   belegt:       { bg: '#F50000', dark: '#B00000' },
-  termin:       { bg: '#FFD600', dark: '#F9A800' },
+  'nicht besetzt': { bg: '#FFD600', dark: '#F9A800' },
   frei:         { bg: '#00C853', dark: '#009624' },
   reserviert:   { bg: '#2196F3', dark: '#0D47A1' },
   geschlossen:  { bg: '#546E7A', dark: '#37474F' },
@@ -159,6 +169,11 @@ function esc(s) {
   return String(s ?? '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Status values may contain spaces ("nicht besetzt"), DOM ids may not.
+function slug(s) {
+  return String(s ?? '').replace(/\s+/g, '-');
 }
 
 class LutarymRoomStatusCard extends HTMLElement {
@@ -315,7 +330,7 @@ class LutarymRoomStatusCard extends HTMLElement {
     // Labels from config (with i18n defaults)
     this._labels = {
       frei:         cfg.status_labels?.frei         ?? t(hass, 'statusFree'),
-      termin:       cfg.status_labels?.termin       ?? t(hass, 'statusAppointment'),
+      'nicht besetzt': cfg.status_labels?.['nicht besetzt'] ?? t(hass, 'statusAppointment'),
       belegt:       cfg.status_labels?.belegt       ?? t(hass, 'statusOccupied'),
       reserviert:   cfg.status_labels?.reserviert   ?? t(hass, 'statusReserved'),
       geschlossen:  cfg.status_labels?.geschlossen ?? t(hass, 'statusClosed'),
@@ -398,6 +413,51 @@ class LutarymRoomStatusCard extends HTMLElement {
         .popup-btn.active { background:var(--c); color:var(--ct,#fff); }
         .popup-btn:not(.active):hover { background:rgba(255,255,255,.12); }
         .popup-btn.wide { grid-column:1 / -1; }
+        .warning-banner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 20px;
+          padding: 20px;
+          margin-top: 16px;
+          background: transparent;
+        }
+        .warning-image {
+          width: 100px;
+          height: 100px;
+          flex-shrink: 0;
+          object-fit: contain;
+        }
+        .warning-text {
+          flex: 1;
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--primary-text-color);
+          text-align: left;
+          line-height: 1.4;
+        }
+        @media (max-width: 600px) {
+          .warning-banner {
+            flex-direction: column;
+            text-align: center;
+          }
+          .warning-text {
+            text-align: center;
+          }
+        }
+        .info-box {
+          box-sizing: border-box;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          padding: 12px 16px;
+          color: var(--primary-text-color);
+          line-height: 1.4;
+          overflow-wrap: anywhere;
+          overflow-y: auto;
+        }
       </style>
       <ha-card>
         <div class="grid">
@@ -410,8 +470,8 @@ class LutarymRoomStatusCard extends HTMLElement {
             <div class="popup-buttons">
               <button class="popup-btn" id="btn-frei"
                 style="--c:#00C853">${this._labels.frei}</button>
-              <button class="popup-btn" id="btn-termin"
-                style="--c:#FFD600;--ct:#1A1A1A">${this._labels.termin}</button>
+              <button class="popup-btn" id="btn-nicht-besetzt"
+                style="--c:#FFD600;--ct:#1A1A1A">${this._labels['nicht besetzt']}</button>
               <button class="popup-btn" id="btn-belegt"
                 style="--c:#F50000">${this._labels.belegt}</button>
               <button class="popup-btn" id="btn-reserviert"
@@ -421,7 +481,13 @@ class LutarymRoomStatusCard extends HTMLElement {
             </div>
           </div>
         </div>
-      </ha-card>`;
+      </ha-card>
+      <div id="warning-banner" class="warning-banner" style="display: none;">
+        <img id="warning-image" class="warning-image" src="" alt="Warning">
+        <div id="warning-text" class="warning-text"></div>
+      </div>
+      <div id="info-box" class="info-box" style="display: none;"></div>
+    `;
 
     this._attachListeners();
     this._update();
@@ -454,7 +520,7 @@ class LutarymRoomStatusCard extends HTMLElement {
       const closed = s === 'geschlossen';
       const label = closed ? '' : (this._labels[s] ?? '');
       el.style.background = `linear-gradient(160deg,${bg},${dark})`;
-      el.style.color       = s === 'termin' ? '#1A1A1A' : '#fff';
+      el.style.color       = s === 'nicht besetzt' ? '#1A1A1A' : '#fff';
       el.querySelector('.room-top').style.visibility    = closed ? 'hidden' : 'visible';
       el.querySelector('.room-footer').style.visibility = closed ? 'hidden' : 'visible';
       el.querySelector('.room-status').textContent = label;
@@ -482,6 +548,61 @@ class LutarymRoomStatusCard extends HTMLElement {
       arrow.style.display = show ? 'block' : 'none';
       if (show) arrow.style.setProperty('--ac', STATUS_COLORS[status].bg);
     });
+
+    // Update warning banner
+    this._updateWarningBanner();
+    this._updateInfoBox();
+  }
+
+  // Free-text box below the warning banner. Its content comes from an entity;
+  // when that entity is missing, unavailable or holds an empty/whitespace-only
+  // state, the box is hidden entirely.
+  _updateInfoBox() {
+    const box = this.shadowRoot.getElementById('info-box');
+    if (!box) return;
+
+    const cfg = this._config.info_box || {};
+    const entityId = cfg.entity;
+    const state = entityId ? this._hass?.states[entityId]?.state : undefined;
+    const text = (state == null || state === 'unknown' || state === 'unavailable')
+      ? '' : String(state).trim();
+
+    if (!text) {
+      box.style.display = 'none';
+      box.textContent = '';
+      return;
+    }
+
+    box.textContent  = text;
+    box.style.fontSize = `${cfg.font_size ?? 18}px`;
+    box.style.height   = `${cfg.height ?? 80}px`;
+    box.style.display  = 'flex';
+  }
+
+  _updateWarningBanner() {
+    const cfg = this._config.warning_banner;
+    const banner = this.shadowRoot.getElementById('warning-banner');
+    if (!banner || !cfg?.enabled) {
+      if (banner) banner.style.display = 'none';
+      return;
+    }
+
+    const imageSrc = cfg.image_path || '/local/Stop.png';
+    const text = cfg.text || 'Bitte erst eintreten wenn der Raum frei ist';
+    const showWhen = cfg.show_when || 'belegt';
+
+    // Check if any room has the showWhen status
+    const shouldShow = this._config.rooms.some(r => 
+      !r.is_exit && this._roomStatus(r) === showWhen
+    );
+
+    if (shouldShow) {
+      this.shadowRoot.getElementById('warning-image').src = imageSrc;
+      this.shadowRoot.getElementById('warning-text').textContent = text;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
   }
 
   // Whether the wayfinding animation (arrows) should show for a given
@@ -502,8 +623,8 @@ class LutarymRoomStatusCard extends HTMLElement {
     });
 
     // Popup buttons
-    ['frei','termin','belegt','reserviert'].forEach(action => {
-      const btn = this.shadowRoot.getElementById(`btn-${action}`);
+    ['frei','nicht besetzt','belegt','reserviert'].forEach(action => {
+      const btn = this.shadowRoot.getElementById(`btn-${slug(action)}`);
       btn.addEventListener('click', e => {
         e.stopPropagation();
         if (!this._hass || !this._popupId) return;
@@ -548,8 +669,8 @@ class LutarymRoomStatusCard extends HTMLElement {
   _refreshPopupBtns() {
     const room = this._config.rooms.find(r => r.position === this._popupId);
     const s = this._roomStatus(room);
-    ['frei','termin','belegt','reserviert','geschlossen'].forEach(a => {
-      this.shadowRoot.getElementById(`btn-${a}`)
+    ['frei','nicht besetzt','belegt','reserviert','geschlossen'].forEach(a => {
+      this.shadowRoot.getElementById(`btn-${slug(a)}`)
         .classList.toggle('active', a === s);
     });
   }
@@ -564,7 +685,7 @@ class LutarymRoomStatusCard extends HTMLElement {
   _roomStatus(room) {
     if (!room || !room.entity || !this._hass) return 'geschlossen';
     const state = this._hass.states[room.entity]?.state;
-    const VALID = ['belegt', 'termin', 'frei', 'reserviert'];
+    const VALID = ['belegt', 'nicht besetzt', 'frei', 'reserviert'];
     return VALID.includes(state) ? state : 'geschlossen';
   }
 
@@ -574,6 +695,7 @@ class LutarymRoomStatusCard extends HTMLElement {
   _setRoomStatus(room, value) {
     if (!room?.entity || !this._hass) return;
     const domain = room.entity.split('.')[0];
+
     if (domain === 'input_select') {
       this._hass.callService('input_select', 'select_option', { entity_id: room.entity, option: value });
     } else {
@@ -693,7 +815,16 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
   }
 
   _onChange(field, value, isNumber) {
-    if (value === '' || value == null) {
+    // Nested fields (e.g. "warning_banner.image_path") are written into a
+    // fresh copy of the parent object: the config handed over by Lovelace may
+    // be frozen, so mutating it in place would throw.
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      const branch = { ...(this._config[parent] || {}) };
+      if (value === '' || value == null) delete branch[child];
+      else branch[child] = isNumber ? Number(value) : value;
+      this._config = { ...this._config, [parent]: branch };
+    } else if (value === '' || value == null) {
       delete this._config[field];
     } else {
       this._config[field] = isNumber ? Number(value) : value;
@@ -767,6 +898,19 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     if (value != null) input.value = value;
     if (placeholder != null) input.placeholder = String(placeholder);
     input.addEventListener('change', ev => this._onChange(field, ev.target.value, true));
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  _stringRow(label, field, value, placeholder) {
+    const wrap = document.createElement('div');
+    wrap.className = 'row';
+    wrap.innerHTML = `<label>${label}</label>`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    if (value != null) input.value = value;
+    if (placeholder != null) input.placeholder = String(placeholder);
+    input.addEventListener('change', ev => this._onChange(field, ev.target.value));
     wrap.appendChild(input);
     return wrap;
   }
@@ -956,7 +1100,7 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     form.appendChild(labelsLabel);
     const sl = cfg.status_labels || {};
     form.appendChild(this._statusLabelRow(t(hass, 'editorLabelFree'), 'frei', sl.frei, t(hass, 'statusFree')));
-    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelAppointment'), 'termin', sl.termin, t(hass, 'statusAppointment')));
+    form.appendChild(this._statusLabelRow(t(hass, 'editorLabelAppointment'), 'nicht besetzt', sl['nicht besetzt'], t(hass, 'statusAppointment')));
     form.appendChild(this._statusLabelRow(t(hass, 'editorLabelOccupied'), 'belegt', sl.belegt, t(hass, 'statusOccupied')));
     form.appendChild(this._statusLabelRow(t(hass, 'editorLabelReserved'), 'reserviert', sl.reserviert, t(hass, 'statusReserved')));
     form.appendChild(this._statusLabelRow(t(hass, 'editorLabelClosed'), 'geschlossen', sl.geschlossen, t(hass, 'statusClosed')));
@@ -1061,6 +1205,69 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     addBtn.disabled = cfg.rooms.length >= 4;
     addBtn.addEventListener('click', () => this._addRoom());
     form.appendChild(addBtn);
+
+    // Warning Banner section
+    const warningLabel = document.createElement('div');
+    warningLabel.className = 'section-label';
+    warningLabel.textContent = 'Warning Banner';
+    form.appendChild(warningLabel);
+
+    const wb = cfg.warning_banner || {};
+    const wbEnabled = document.createElement('div');
+    wbEnabled.className = 'row checkbox-row';
+    const wbEnabledCb = document.createElement('input');
+    wbEnabledCb.type = 'checkbox';
+    wbEnabledCb.checked = wb.enabled ?? false;
+    wbEnabledCb.addEventListener('change', ev => {
+      this._config = { ...this._config, warning_banner: { ...wb, enabled: ev.target.checked } };
+      this._fireChanged();
+      this._render(); // structural change: show/hide the fields below
+    });
+    wbEnabled.appendChild(wbEnabledCb);
+    wbEnabled.appendChild(document.createTextNode('Enable warning banner'));
+    form.appendChild(wbEnabled);
+
+    if (wb.enabled) {
+      form.appendChild(this._stringRow('Image Path', 'warning_banner.image_path', wb.image_path || '/local/Stop.png', '/local/Stop.png'));
+      form.appendChild(this._stringRow('Warning Text', 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
+      form.appendChild(this._stringRow('Show When Status', 'warning_banner.show_when', wb.show_when || 'belegt', 'belegt'));
+    }
+
+    // Textfeld (info box)
+    const ib = cfg.info_box || {};
+    const infoLabel = document.createElement('div');
+    infoLabel.className = 'section-label';
+    infoLabel.textContent = t(hass, 'sectionInfoBox');
+    form.appendChild(infoLabel);
+
+    form.appendChild(this._infoBoxEntityRow(t(hass, 'editorInfoBoxEntity'), ib.entity));
+    form.appendChild(this._sideBySide(
+      this._numberRow(t(hass, 'editorInfoBoxFontSize'), 'info_box.font_size', ib.font_size ?? 18, 18),
+      this._numberRow(t(hass, 'editorInfoBoxHeight'), 'info_box.height', ib.height ?? 80, 80),
+    ));
+
+    const infoHint = document.createElement('div');
+    infoHint.className = 'hint';
+    infoHint.textContent = t(hass, 'editorInfoBoxHint');
+    form.appendChild(infoHint);
+  }
+
+  // Entity picker for the info box. Any domain is allowed, since the text may
+  // come from an input_text, a template sensor, or anything else.
+  _infoBoxEntityRow(label, value) {
+    const wrap = document.createElement('div');
+    wrap.className = 'row';
+    wrap.innerHTML = `<label>${label}</label>`;
+    const selector = document.createElement('ha-selector');
+    selector.hass = this._hass;
+    selector.selector = { entity: {} };
+    selector.value = value ?? '';
+    selector.addEventListener('value-changed', ev => {
+      ev.stopPropagation();
+      this._onChange('info_box.entity', ev.detail.value || '');
+    });
+    wrap.appendChild(selector);
+    return wrap;
   }
 }
 
