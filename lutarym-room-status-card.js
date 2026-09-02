@@ -352,7 +352,8 @@ class LutarymRoomStatusCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display:block; width:100%; height:100%; }
-        ha-card { padding:0; overflow:hidden; height:100%; position:relative; }
+        ha-card { padding:0; overflow:hidden; height:100%; position:relative;
+                  display:flex; flex-direction:column; }
         .grid {
           display:grid;
           grid-template-areas:"tl corridor tr" "bl corridor br";
@@ -360,7 +361,8 @@ class LutarymRoomStatusCard extends HTMLElement {
           grid-template-rows:1fr 1fr;
           gap:3px;
           background:#212121;
-          height:100%;
+          flex:1 1 auto;
+          min-height:0;
           align-items:stretch;
         }
         .room {
@@ -418,27 +420,31 @@ class LutarymRoomStatusCard extends HTMLElement {
         .popup-btn:not(.active):hover { background:rgba(255,255,255,.12); }
         .popup-btn.wide { grid-column:1 / -1; }
         .warning-banner {
+          flex: 0 0 auto;
+          box-sizing: border-box;
+          width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 20px;
-          padding: 20px;
-          margin-top: 16px;
+          padding: 16px 20px;
           background: transparent;
         }
         .warning-image {
           width: 100px;
           height: 100px;
-          flex-shrink: 0;
+          flex: 0 0 100px;
           object-fit: contain;
         }
         .warning-text {
-          flex: 1;
+          flex: 1 1 auto;
+          min-width: 0;
           font-size: 16px;
           font-weight: 600;
-          color: var(--primary-text-color);
+          color: var(--primary-text-color, #212121);
           text-align: left;
           line-height: 1.4;
+          overflow-wrap: anywhere;
         }
         @media (max-width: 600px) {
           .warning-banner {
@@ -450,6 +456,7 @@ class LutarymRoomStatusCard extends HTMLElement {
           }
         }
         .info-box {
+          flex: 0 0 auto;
           box-sizing: border-box;
           width: 100%;
           display: flex;
@@ -457,7 +464,7 @@ class LutarymRoomStatusCard extends HTMLElement {
           justify-content: center;
           text-align: center;
           padding: 12px 16px;
-          color: var(--primary-text-color);
+          color: var(--primary-text-color, #212121);
           line-height: 1.4;
           overflow-wrap: anywhere;
           overflow-y: auto;
@@ -485,12 +492,12 @@ class LutarymRoomStatusCard extends HTMLElement {
             </div>
           </div>
         </div>
+        <div class="warning-banner" id="warning-banner" style="display: none;">
+          <img id="warning-image" class="warning-image" src="" alt="">
+          <div id="warning-text" class="warning-text"></div>
+        </div>
+        <div id="info-box" class="info-box" style="display: none;"></div>
       </ha-card>
-      <div id="warning-banner" class="warning-banner" style="display: none;">
-        <img id="warning-image" class="warning-image" src="" alt="Warning">
-        <div id="warning-text" class="warning-text"></div>
-      </div>
-      <div id="info-box" class="info-box" style="display: none;"></div>
     `;
 
     this._attachListeners();
