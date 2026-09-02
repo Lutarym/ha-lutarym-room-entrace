@@ -1,0 +1,28 @@
+# Zeilenenden festlegen, damit Git sie nicht je nach Betriebssystem umschreibt.
+# Ohne diese Datei entscheidet core.autocrlf des jeweiligen Rechners, was auf
+# Windows zu CRLF und damit zu unnoetigen Diffs und Warnungen fuehrt.
+
+# Alles Textuelle wird im Repo und beim Checkout als LF gefuehrt.
+* text=auto eol=lf
+
+# Explizit, damit es auch bei ungewoehnlicher Konfiguration eindeutig bleibt.
+*.js    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+LICENSE         text eol=lf
+
+# Binaerdateien nie anfassen.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.svg  text eol=lf
+*.ico  binary
+*.zip  binary
