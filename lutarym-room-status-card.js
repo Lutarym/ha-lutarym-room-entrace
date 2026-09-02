@@ -60,6 +60,7 @@ const I18N = {
     editorBannerEnabled: 'Show warning banner',
     editorImagePath: 'Image path',
     editorImageSize: 'Image size (px)',
+    editorWarningFontSize: 'Text size (px)',
     editorWarningText: 'Warning text',
     editorShowWhen: 'Show banner when',
     showWhenAlways: 'Always show',
@@ -74,6 +75,7 @@ const I18N = {
     roomsMissing: '"rooms" (array) is required.',
     editorCorridorWidth: 'Corridor width (px)',
     editorPersonIconSize: 'Person icon size (px)',
+    editorRoomHeight: 'Floor plan height (px)',
     editorArrowAnimation: 'Arrow animation',
     anim1: '1 – Draw', anim2: '2 – Pulse', anim3: '3 – Blink', anim4: '4 – Glow', anim5: '5 – Bounce',
     anim6: '6 – Flow', anim7: '7 – Wave', anim8: '8 – Chase', anim9: '9 – Dots', anim10: '10 – Runlight',
@@ -112,6 +114,7 @@ const I18N = {
     editorBannerEnabled: 'Warnhinweis anzeigen',
     editorImagePath: 'Bildpfad',
     editorImageSize: 'Bildgr\u00f6\u00dfe (px)',
+    editorWarningFontSize: 'Schriftgr\u00f6\u00dfe (px)',
     editorWarningText: 'Warntext',
     editorShowWhen: 'Banner anzeigen bei',
     showWhenAlways: 'Dauerhaft anzeigen',
@@ -126,6 +129,7 @@ const I18N = {
     roomsMissing: 'Pflichtfeld "rooms" (Array) fehlt.',
     editorCorridorWidth: 'Flurbreite (px)',
     editorPersonIconSize: 'Größe Personensymbol (px)',
+    editorRoomHeight: 'Höhe Raumplan (px)',
     editorArrowAnimation: 'Pfeil-Animation',
     anim1: '1 – Zeichnen', anim2: '2 – Pulsieren', anim3: '3 – Blinken', anim4: '4 – Glühen', anim5: '5 – Springen',
     anim6: '6 – Fließen', anim7: '7 – Welle', anim8: '8 – Chase', anim9: '9 – Punkte', anim10: '10 – Lauflicht',
@@ -205,7 +209,11 @@ class LutarymRoomStatusCard extends HTMLElement {
     if (!Array.isArray(config?.rooms) || !config.rooms.length)
       throw new Error(t(this._hass, 'roomsMissing'));
     this._config = config;
-    this._built = false; // rebuild on next hass assignment, e.g. after editing in the visual editor
+    this._built = false;
+    // Rebuild right away when hass is already available. Waiting for the next
+    // hass assignment would leave the card showing its previous state until
+    // some entity happens to change.
+    if (this._hass) this._build();
   }
 
   set hass(hass) {
@@ -214,7 +222,44 @@ class LutarymRoomStatusCard extends HTMLElement {
     else              this._update();
   }
 
-  getCardSize() { return 5; }
+  // Height the card reports to Home Assistant. The floor plan alone is 5 units
+  // (Lovelace counts one unit as 50px), but banner and text box add real height
+  // below it. Without adding them here the card keeps its old height and the
+  // extra content is cut off by ha-card's overflow:hidden.
+  getCardSize() {
+    return Math.ceil(this._contentHeight() / 50);
+  }
+
+  // Estimated height of the whole card in pixels.
+  _contentHeight() {
+    const rawRh = Number(this._config?.room_height);
+    let px = Number.isFinite(rawRh) && rawRh > 0 ? rawRh : 250; // floor plan
+
+    const wb = this._config?.warning_banner;
+    if (wb?.enabled) {
+      const rawImg = Number(wb.image_size);
+      const img = Number.isFinite(rawImg) && rawImg > 0 ? rawImg : 100;
+      const rawFs = Number(wb.font_size);
+      const fs = Number.isFinite(rawFs) && rawFs > 0 ? rawFs : 16;
+      // The banner is as tall as whichever is taller: the image, or the text
+      // assuming it wraps onto two lines (line-height 1.4).
+      px += Math.max(img, Math.ceil(fs * 2.8)) + 32;
+    }
+
+    const ib = this._config?.info_box;
+    if (ib?.entity) {
+      const raw = Number(ib.height);
+      const h = Number.isFinite(raw) && raw > 0 ? raw : 80;
+      px += h + 24; // box plus vertical padding
+    }
+    return px;
+  }
+
+  // Sections layout (HA 2024.11+) asks for grid rows instead of card size.
+  getGridOptions() {
+    const rows = Math.ceil(this._contentHeight() / 56);
+    return { columns: 12, rows, min_rows: rows };
+  }
 
   static getConfigElement() {
     return document.createElement('lutarym-room-status-card-editor');
@@ -341,6 +386,12 @@ class LutarymRoomStatusCard extends HTMLElement {
     const fsc = cfg.font_size_closed ?? 1.2;
     const cw  = cfg.corridor_width   ?? 68;
 
+    // Fixed height of the floor plan. It must not depend on whether banner or
+    // text box are visible, otherwise the rooms would resize on every status
+    // change that shows or hides them.
+    const rawRh = Number(cfg.room_height);
+    const rh = Number.isFinite(rawRh) && rawRh > 0 ? rawRh : 250;
+
     // Labels from config (with i18n defaults)
     this._labels = {
       frei:         cfg.status_labels?.frei         ?? t(hass, 'statusFree'),
@@ -361,9 +412,9 @@ class LutarymRoomStatusCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display:block; width:100%; height:100%; }
-        ha-card { padding:0; overflow:hidden; height:100%; position:relative; }
-        .wrap { display:flex; flex-direction:column; height:100%; min-height:0; }
+        :host { display:block; width:100%; }
+        ha-card { padding:0; overflow:hidden; min-height:100%; position:relative; }
+        .wrap { display:flex; flex-direction:column; min-height:100%; }
         .grid {
           display:grid;
           grid-template-areas:"tl corridor tr" "bl corridor br";
@@ -371,8 +422,8 @@ class LutarymRoomStatusCard extends HTMLElement {
           grid-template-rows:1fr 1fr;
           gap:3px;
           background:#212121;
-          flex:1 1 auto;
-          min-height:180px;
+          flex:0 0 ${rh}px;
+          height:${rh}px;
           align-items:stretch;
         }
         .room {
@@ -447,7 +498,6 @@ class LutarymRoomStatusCard extends HTMLElement {
         .warning-text {
           flex: 1 1 auto;
           min-width: 0;
-          font-size: 16px;
           font-weight: 600;
           color: var(--primary-text-color, #212121);
           text-align: left;
@@ -513,6 +563,24 @@ class LutarymRoomStatusCard extends HTMLElement {
     this._attachListeners();
     this._update();
     this._observeSize();
+    this._notifyResize();
+  }
+
+  // Ask Lovelace to re-measure this card. Home Assistant does not always call
+  // getCardSize on custom cards during the initial load, so without this the
+  // card can keep an outdated height until something else triggers a relayout.
+  _notifyResize() {
+    // Never let this break the build: if anything here throws, the card would
+    // stay empty. The relayout hint is a nice-to-have, the card is not.
+    try {
+      const feuern = () => {
+        try {
+          this.dispatchEvent(new Event('iron-resize', { bubbles: true, composed: true }));
+        } catch (e) { /* ignore */ }
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(feuern);
+      else setTimeout(feuern, 0);
+    } catch (e) { /* ignore */ }
   }
 
   _observeSize() {
@@ -621,10 +689,13 @@ class LutarymRoomStatusCard extends HTMLElement {
     const imgEl = this.shadowRoot.getElementById('warning-image');
     const txtEl = this.shadowRoot.getElementById('warning-text');
 
-    // Image size in px, configurable. Guard against 0, negative values and
-    // anything non-numeric, which would otherwise make the image disappear.
+    // Image size and text size in px, both configurable. Guard against 0,
+    // negative values and anything non-numeric, which would otherwise make
+    // image or text disappear.
     const rawSize = Number(cfg.image_size);
     const size = Number.isFinite(rawSize) && rawSize > 0 ? rawSize : 100;
+    const rawFs = Number(cfg.font_size);
+    const fs = Number.isFinite(rawFs) && rawFs > 0 ? rawFs : 16;
 
     if (shouldShow) {
       // If the image cannot be loaded (wrong path, file missing), hide the
@@ -639,6 +710,7 @@ class LutarymRoomStatusCard extends HTMLElement {
         imgEl.src = imageSrc;
       }
       txtEl.textContent = text;
+      txtEl.style.fontSize = `${fs}px`;
       banner.style.display = 'flex';
     } else {
       banner.style.display = 'none';
@@ -1111,8 +1183,9 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
 
     form.appendChild(this._sideBySide(
       this._numberRow(t(hass, 'editorCorridorWidth'), 'corridor_width', cfg.corridor_width ?? 68, 68),
-      this._numberRow(t(hass, 'editorPersonIconSize'), 'person_icon_size', cfg.person_icon_size ?? 34, 34),
+      this._numberRow(t(hass, 'editorRoomHeight'), 'room_height', cfg.room_height ?? 250, 250),
     ));
+    form.appendChild(this._numberRow(t(hass, 'editorPersonIconSize'), 'person_icon_size', cfg.person_icon_size ?? 34, 34));
     form.appendChild(this._selectRow(t(hass, 'editorArrowAnimation'), 'arrow_animation', cfg.arrow_animation ?? 1, [
       { value: '1', label: t(hass, 'anim1') }, { value: '2', label: t(hass, 'anim2') },
       { value: '3', label: t(hass, 'anim3') }, { value: '4', label: t(hass, 'anim4') },
@@ -1269,7 +1342,10 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
 
     if (wb.enabled) {
       form.appendChild(this._stringRow(t(hass, 'editorImagePath'), 'warning_banner.image_path', wb.image_path || '/local/Stop.png', '/local/Stop.png'));
-      form.appendChild(this._numberRow(t(hass, 'editorImageSize'), 'warning_banner.image_size', wb.image_size ?? 100, 100));
+      form.appendChild(this._sideBySide(
+        this._numberRow(t(hass, 'editorImageSize'), 'warning_banner.image_size', wb.image_size ?? 100, 100),
+        this._numberRow(t(hass, 'editorWarningFontSize'), 'warning_banner.font_size', wb.font_size ?? 16, 16),
+      ));
       form.appendChild(this._stringRow(t(hass, 'editorWarningText'), 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
       form.appendChild(this._selectRow(
         t(hass, 'editorShowWhen'), 'warning_banner.show_when', wb.show_when || 'belegt',

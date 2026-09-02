@@ -94,8 +94,21 @@ warning_banner:
 | `enabled` | boolean | `false` | Banner aktivieren |
 | `image_path` | string | `/local/Stop.png` | Pfad zum Bild (PNG) |
 | `image_size` | number | `100` | Kantenlänge des Bildes in px |
+| `font_size` | number | `16` | Schriftgröße des Warntextes in px |
 | `text` | string | `Bitte erst eintreten...` | Warntext |
 | `show_when` | string | `belegt` | `immer` für Daueranzeige, sonst der Status, bei dem eingeblendet wird |
+
+### Höhe des Raumplans
+
+Der Raumplan hat eine feste Höhe und verändert sich nicht, wenn Warnhinweis oder
+Textfeld ein- und ausgeblendet werden. Die Räume bleiben also auch bei
+`show_when: belegt` bei jedem Statuswechsel gleich groß.
+
+```yaml
+room_height: 300
+```
+
+Einstellbar auch im Editor unter "Höhe Raumplan (px)". Standard ist 250.
 
 ### Textfeld (`info_box`)
 
@@ -113,6 +126,7 @@ Das Feld nutzt immer die volle Breite. Ist der Zustand der Entität leer,
 | Parameter | Typ | Standard | Beschreibung |
 |-----------|-----|----------|-------------|
 | `corridor_width` | number | `68` | Breite des Flurs in Prozent |
+| `room_height` | number | `250` | Feste Höhe des Raumplans in px |
 | `person_icon_size` | number | `34` | Größe des Personensymbols in px |
 | `arrow_animation` | number | `1` | Pfeil-Animationstyp (1-10) |
 | `font_size_label` | number | `1.2` | Schriftgröße Raumlabels |
@@ -196,6 +210,7 @@ warning_banner:
   enabled: true
   image_path: /local/Stop.png
   image_size: 120
+  font_size: 22
   text: Bitte erst eintreten wenn der Raum frei ist
   show_when: immer
 ```
