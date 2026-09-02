@@ -94,7 +94,7 @@ warning_banner:
 | `enabled` | boolean | `false` | Banner aktivieren |
 | `image_path` | string | `/local/Stop.png` | Pfad zum Bild (PNG) |
 | `text` | string | `Bitte erst eintreten...` | Warntext |
-| `show_when` | string | `belegt` | Status bei dem angezeigt wird |
+| `show_when` | string | `belegt` | `immer` für Daueranzeige, sonst der Status, bei dem eingeblendet wird |
 
 ### Textfeld (`info_box`)
 
@@ -188,6 +188,16 @@ warning_banner:
   text: Bitte klopfen, Raum ist belegt!
   show_when: belegt
 ```
+
+### Stopschild dauerhaft anzeigen:
+```yaml
+warning_banner:
+  enabled: true
+  image_path: /local/Stop.png
+  text: Bitte erst eintreten wenn der Raum frei ist
+  show_when: immer
+```
+Mit `immer` bleibt das Schild sichtbar, unabhängig vom Status der Räume.
 
 ### Warnung wenn nicht besetzt:
 ```yaml

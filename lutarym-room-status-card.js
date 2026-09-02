@@ -56,6 +56,8 @@ const I18N = {
     emergencyExit: 'Emergency Exit',
     statusFree: 'Free',
     statusAppointment: 'Not occupied',
+    editorShowWhen: 'Show banner when',
+    showWhenAlways: 'Always show',
     sectionInfoBox: 'Text box',
     editorInfoBoxEntity: 'Text box entity',
     editorInfoBoxFontSize: 'Font size (px)',
@@ -101,6 +103,8 @@ const I18N = {
     emergencyExit: 'Notausgang',
     statusFree: 'Frei',
     statusAppointment: 'Nicht besetzt',
+    editorShowWhen: 'Banner anzeigen bei',
+    showWhenAlways: 'Dauerhaft anzeigen',
     sectionInfoBox: 'Textfeld',
     editorInfoBoxEntity: 'Entit\u00e4t f\u00fcr Textfeld',
     editorInfoBoxFontSize: 'Schriftgr\u00f6\u00dfe (px)',
@@ -591,10 +595,11 @@ class LutarymRoomStatusCard extends HTMLElement {
     const text = cfg.text || 'Bitte erst eintreten wenn der Raum frei ist';
     const showWhen = cfg.show_when || 'belegt';
 
-    // Check if any room has the showWhen status
-    const shouldShow = this._config.rooms.some(r => 
-      !r.is_exit && this._roomStatus(r) === showWhen
-    );
+    // "immer" shows the banner permanently; any other value shows it only
+    // while at least one (non-exit) room carries that status.
+    const shouldShow = showWhen === 'immer'
+      ? true
+      : this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) === showWhen);
 
     if (shouldShow) {
       this.shadowRoot.getElementById('warning-image').src = imageSrc;
@@ -1230,7 +1235,17 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     if (wb.enabled) {
       form.appendChild(this._stringRow('Image Path', 'warning_banner.image_path', wb.image_path || '/local/Stop.png', '/local/Stop.png'));
       form.appendChild(this._stringRow('Warning Text', 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
-      form.appendChild(this._stringRow('Show When Status', 'warning_banner.show_when', wb.show_when || 'belegt', 'belegt'));
+      form.appendChild(this._selectRow(
+        t(hass, 'editorShowWhen'), 'warning_banner.show_when', wb.show_when || 'belegt',
+        [
+          { value: 'immer',         label: t(hass, 'showWhenAlways') },
+          { value: 'belegt',        label: t(hass, 'statusOccupied') },
+          { value: 'nicht besetzt', label: t(hass, 'statusAppointment') },
+          { value: 'frei',          label: t(hass, 'statusFree') },
+          { value: 'reserviert',    label: t(hass, 'statusReserved') },
+          { value: 'geschlossen',   label: t(hass, 'statusClosed') },
+        ],
+      ));
     }
 
     // Textfeld (info box)
