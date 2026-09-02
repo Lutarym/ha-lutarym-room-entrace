@@ -62,6 +62,11 @@ const I18N = {
     editorImageSize: 'Image size (px)',
     editorWarningFontSize: 'Text size (px)',
     editorWarningText: 'Warning text',
+    editorTextAlign: 'Text alignment',
+    alignLeft: 'Left',
+    alignCenter: 'Centered',
+    alignRight: 'Right',
+    alignJustify: 'Justified',
     editorShowWhen: 'Show banner when',
     showWhenAlways: 'Always show',
     sectionInfoBox: 'Text box',
@@ -116,6 +121,11 @@ const I18N = {
     editorImageSize: 'Bildgr\u00f6\u00dfe (px)',
     editorWarningFontSize: 'Schriftgr\u00f6\u00dfe (px)',
     editorWarningText: 'Warntext',
+    editorTextAlign: 'Textausrichtung',
+    alignLeft: 'Linksb\u00fcndig',
+    alignCenter: 'Zentriert',
+    alignRight: 'Rechtsb\u00fcndig',
+    alignJustify: 'Blockb\u00fcndig',
     editorShowWhen: 'Banner anzeigen bei',
     showWhenAlways: 'Dauerhaft anzeigen',
     sectionInfoBox: 'Textfeld',
@@ -210,6 +220,7 @@ class LutarymRoomStatusCard extends HTMLElement {
       throw new Error(t(this._hass, 'roomsMissing'));
     this._config = config;
     this._built = false;
+    this._measuredHeight = null; // previous measurement no longer applies
     // Rebuild right away when hass is already available. Waiting for the next
     // hass assignment would leave the card showing its previous state until
     // some entity happens to change.
@@ -230,8 +241,11 @@ class LutarymRoomStatusCard extends HTMLElement {
     return Math.ceil(this._contentHeight() / 50);
   }
 
-  // Estimated height of the whole card in pixels.
+  // Estimated height of the whole card in pixels. Used until the card has been
+  // rendered once and could measure itself.
   _contentHeight() {
+    if (this._measuredHeight > 0) return this._measuredHeight;
+
     const rawRh = Number(this._config?.room_height);
     let px = Number.isFinite(rawRh) && rawRh > 0 ? rawRh : 250; // floor plan
 
@@ -507,10 +521,6 @@ class LutarymRoomStatusCard extends HTMLElement {
         @media (max-width: 600px) {
           .warning-banner {
             flex-direction: column;
-            text-align: center;
-          }
-          .warning-text {
-            text-align: center;
           }
         }
         .info-box {
@@ -593,8 +603,33 @@ class LutarymRoomStatusCard extends HTMLElement {
         const scale = Math.max(0.3, w / refWidth);
         grid.style.setProperty('--scale', scale);
       }
+      this._measureHeight();
     });
     ro.observe(this);
+
+    // Also watch the content itself: banner and text box appear and disappear
+    // with the room status, which changes the height without changing width.
+    const wrap = this.shadowRoot.querySelector('.wrap');
+    if (wrap) {
+      const roWrap = new ResizeObserver(() => this._measureHeight());
+      roWrap.observe(wrap);
+    }
+  }
+
+  // Measures what the card actually occupies and reports it to Lovelace.
+  // The estimate in _contentHeight() cannot account for text wrapping or the
+  // narrow-screen layout, so the measured value is used whenever available.
+  _measureHeight() {
+    try {
+      const wrap = this.shadowRoot?.querySelector('.wrap');
+      if (!wrap) return;
+      const h = Math.round(wrap.getBoundingClientRect().height);
+      if (!h) return;
+      // Only report on a real change, otherwise the relayout could loop.
+      if (this._measuredHeight != null && Math.abs(h - this._measuredHeight) < 2) return;
+      this._measuredHeight = h;
+      this._notifyResize();
+    } catch (e) { /* ignore */ }
   }
 
   // ── Update only colors/text (no rebuild) ─────────────────────────────────
@@ -697,6 +732,11 @@ class LutarymRoomStatusCard extends HTMLElement {
     const rawFs = Number(cfg.font_size);
     const fs = Number.isFinite(rawFs) && rawFs > 0 ? rawFs : 16;
 
+    // Text alignment. Anything unknown falls back to left, so a typo in YAML
+    // cannot produce an invalid CSS value.
+    const ALIGN = ['left', 'center', 'right', 'justify'];
+    const align = ALIGN.includes(cfg.text_align) ? cfg.text_align : 'left';
+
     if (shouldShow) {
       // If the image cannot be loaded (wrong path, file missing), hide the
       // image element so it does not occupy space and the text stays visible.
@@ -711,6 +751,7 @@ class LutarymRoomStatusCard extends HTMLElement {
       }
       txtEl.textContent = text;
       txtEl.style.fontSize = `${fs}px`;
+      txtEl.style.textAlign = align;
       banner.style.display = 'flex';
     } else {
       banner.style.display = 'none';
@@ -1347,6 +1388,15 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
         this._numberRow(t(hass, 'editorWarningFontSize'), 'warning_banner.font_size', wb.font_size ?? 16, 16),
       ));
       form.appendChild(this._stringRow(t(hass, 'editorWarningText'), 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
+      form.appendChild(this._selectRow(
+        t(hass, 'editorTextAlign'), 'warning_banner.text_align', wb.text_align || 'left',
+        [
+          { value: 'left',    label: t(hass, 'alignLeft') },
+          { value: 'center',  label: t(hass, 'alignCenter') },
+          { value: 'right',   label: t(hass, 'alignRight') },
+          { value: 'justify', label: t(hass, 'alignJustify') },
+        ],
+      ));
       form.appendChild(this._selectRow(
         t(hass, 'editorShowWhen'), 'warning_banner.show_when', wb.show_when || 'belegt',
         [
