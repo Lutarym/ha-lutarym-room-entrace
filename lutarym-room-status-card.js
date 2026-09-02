@@ -56,6 +56,11 @@ const I18N = {
     emergencyExit: 'Emergency Exit',
     statusFree: 'Free',
     statusAppointment: 'Not occupied',
+    sectionWarningBanner: 'Warning banner',
+    editorBannerEnabled: 'Show warning banner',
+    editorImagePath: 'Image path',
+    editorImageSize: 'Image size (px)',
+    editorWarningText: 'Warning text',
     editorShowWhen: 'Show banner when',
     showWhenAlways: 'Always show',
     sectionInfoBox: 'Text box',
@@ -103,6 +108,11 @@ const I18N = {
     emergencyExit: 'Notausgang',
     statusFree: 'Frei',
     statusAppointment: 'Nicht besetzt',
+    sectionWarningBanner: 'Warnhinweis',
+    editorBannerEnabled: 'Warnhinweis anzeigen',
+    editorImagePath: 'Bildpfad',
+    editorImageSize: 'Bildgr\u00f6\u00dfe (px)',
+    editorWarningText: 'Warntext',
     editorShowWhen: 'Banner anzeigen bei',
     showWhenAlways: 'Dauerhaft anzeigen',
     sectionInfoBox: 'Textfeld',
@@ -352,8 +362,8 @@ class LutarymRoomStatusCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display:block; width:100%; height:100%; }
-        ha-card { padding:0; overflow:hidden; height:100%; position:relative;
-                  display:flex; flex-direction:column; }
+        ha-card { padding:0; overflow:hidden; height:100%; position:relative; }
+        .wrap { display:flex; flex-direction:column; height:100%; min-height:0; }
         .grid {
           display:grid;
           grid-template-areas:"tl corridor tr" "bl corridor br";
@@ -362,7 +372,7 @@ class LutarymRoomStatusCard extends HTMLElement {
           gap:3px;
           background:#212121;
           flex:1 1 auto;
-          min-height:0;
+          min-height:180px;
           align-items:stretch;
         }
         .room {
@@ -431,9 +441,7 @@ class LutarymRoomStatusCard extends HTMLElement {
           background: transparent;
         }
         .warning-image {
-          width: 100px;
-          height: 100px;
-          flex: 0 0 100px;
+          flex: 0 0 auto;
           object-fit: contain;
         }
         .warning-text {
@@ -471,9 +479,16 @@ class LutarymRoomStatusCard extends HTMLElement {
         }
       </style>
       <ha-card>
-        <div class="grid">
-          ${positionsHtml}
-          ${this._corridorHtml(rooms)}
+        <div class="wrap">
+          <div class="grid">
+            ${positionsHtml}
+            ${this._corridorHtml(rooms)}
+          </div>
+          <div class="warning-banner" id="warning-banner" style="display: none;">
+            <img id="warning-image" class="warning-image" src="" alt="">
+            <div id="warning-text" class="warning-text"></div>
+          </div>
+          <div id="info-box" class="info-box" style="display: none;"></div>
         </div>
         <div class="popup-overlay" id="popup">
           <div class="popup-box">
@@ -492,11 +507,6 @@ class LutarymRoomStatusCard extends HTMLElement {
             </div>
           </div>
         </div>
-        <div class="warning-banner" id="warning-banner" style="display: none;">
-          <img id="warning-image" class="warning-image" src="" alt="">
-          <div id="warning-text" class="warning-text"></div>
-        </div>
-        <div id="info-box" class="info-box" style="display: none;"></div>
       </ha-card>
     `;
 
@@ -611,12 +621,19 @@ class LutarymRoomStatusCard extends HTMLElement {
     const imgEl = this.shadowRoot.getElementById('warning-image');
     const txtEl = this.shadowRoot.getElementById('warning-text');
 
+    // Image size in px, configurable. Guard against 0, negative values and
+    // anything non-numeric, which would otherwise make the image disappear.
+    const rawSize = Number(cfg.image_size);
+    const size = Number.isFinite(rawSize) && rawSize > 0 ? rawSize : 100;
+
     if (shouldShow) {
       // If the image cannot be loaded (wrong path, file missing), hide the
       // image element so it does not occupy space and the text stays visible.
       imgEl.onerror = () => { imgEl.style.display = 'none'; };
       imgEl.onload  = () => { imgEl.style.display = ''; };
       imgEl.alt = text;
+      imgEl.style.width  = `${size}px`;
+      imgEl.style.height = `${size}px`;
       if (imgEl.getAttribute('src') !== imageSrc) {
         imgEl.style.display = '';
         imgEl.src = imageSrc;
@@ -1232,7 +1249,7 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     // Warning Banner section
     const warningLabel = document.createElement('div');
     warningLabel.className = 'section-label';
-    warningLabel.textContent = 'Warning Banner';
+    warningLabel.textContent = t(hass, 'sectionWarningBanner');
     form.appendChild(warningLabel);
 
     const wb = cfg.warning_banner || {};
@@ -1247,12 +1264,13 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
       this._render(); // structural change: show/hide the fields below
     });
     wbEnabled.appendChild(wbEnabledCb);
-    wbEnabled.appendChild(document.createTextNode('Enable warning banner'));
+    wbEnabled.appendChild(document.createTextNode(t(hass, 'editorBannerEnabled')));
     form.appendChild(wbEnabled);
 
     if (wb.enabled) {
-      form.appendChild(this._stringRow('Image Path', 'warning_banner.image_path', wb.image_path || '/local/Stop.png', '/local/Stop.png'));
-      form.appendChild(this._stringRow('Warning Text', 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
+      form.appendChild(this._stringRow(t(hass, 'editorImagePath'), 'warning_banner.image_path', wb.image_path || '/local/Stop.png', '/local/Stop.png'));
+      form.appendChild(this._numberRow(t(hass, 'editorImageSize'), 'warning_banner.image_size', wb.image_size ?? 100, 100));
+      form.appendChild(this._stringRow(t(hass, 'editorWarningText'), 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
       form.appendChild(this._selectRow(
         t(hass, 'editorShowWhen'), 'warning_banner.show_when', wb.show_when || 'belegt',
         [

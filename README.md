@@ -93,6 +93,7 @@ warning_banner:
 |-----------|-----|----------|-------------|
 | `enabled` | boolean | `false` | Banner aktivieren |
 | `image_path` | string | `/local/Stop.png` | Pfad zum Bild (PNG) |
+| `image_size` | number | `100` | Kantenlänge des Bildes in px |
 | `text` | string | `Bitte erst eintreten...` | Warntext |
 | `show_when` | string | `belegt` | `immer` für Daueranzeige, sonst der Status, bei dem eingeblendet wird |
 
@@ -194,6 +195,7 @@ warning_banner:
 warning_banner:
   enabled: true
   image_path: /local/Stop.png
+  image_size: 120
   text: Bitte erst eintreten wenn der Raum frei ist
   show_when: immer
 ```
@@ -221,7 +223,7 @@ Ist der Zustand der Entität leer, wird das Feld ausgeblendet.
 
 - **Format:** PNG mit Transparenzhintergrund
 - **Empfohlene Größe:** 200×200 Pixel
-- **Wird skaliert auf:** 100×100 Pixel in der Anzeige
+- **Anzeigegröße:** über `image_size` einstellbar, Standard 100 px
 
 ## Support und Fehler
 
