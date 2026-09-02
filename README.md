@@ -28,13 +28,13 @@ Eine **Lovelace Custom Card für Home Assistant** — eine Büro-Grundriss-Karte
 
 ## Manuelle Installation
 
-1. `lutarym-room-status-card-deutsch.js` in `config/www/` kopieren
+1. `lutarym-room-status-card.js` in `config/www/` kopieren
 2. `Stop.png` in `config/www/` kopieren
 3. Ressource in Lovelace hinzufügen:
 
 ```yaml
 resources:
-  - url: /local/lutarym-room-status-card-deutsch.js
+  - url: /local/lutarym-room-status-card.js
     type: module
 ```
 
@@ -43,7 +43,7 @@ resources:
 ### Minimale YAML-Konfiguration:
 
 ```yaml
-type: custom:lutarym-room-status-card-deutsch
+type: custom:lutarym-room-status-card
 rooms:
   - position: top-left
     label: Büro 1
@@ -57,7 +57,7 @@ rooms:
 ### Mit Warning Banner:
 
 ```yaml
-type: custom:lutarym-room-status-card-deutsch
+type: custom:lutarym-room-status-card
 rooms:
   - position: top-left
     label: Büro 1
@@ -174,7 +174,7 @@ input_text:
 Die Card kann vollständig im Lovelace-Editor visuell konfiguriert werden:
 
 1. **Dashboard bearbeiten** → Karte hinzufügen
-2. `lutarym-room-status-card-deutsch` wählen
+2. `Room Status by Lutarym` wählen (Kartentyp: `custom:lutarym-room-status-card`)
 3. Alle Parameter im rechten Panel einstellen
 4. **Speichern** und live sehen
 

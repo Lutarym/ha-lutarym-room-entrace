@@ -2,7 +2,7 @@
   "name": "lutarym-room-status-card-deutsch",
   "version": "2.0.0",
   "description": "Home Assistant Lovelace Custom Card - Office floor-plan card with room status, animated wayfinding arrows, and warning banner (German Version)",
-  "main": "lutarym-room-status-card-deutsch.js",
+  "main": "lutarym-room-status-card.js",
   "keywords": [
     "home-assistant",
     "lovelace",

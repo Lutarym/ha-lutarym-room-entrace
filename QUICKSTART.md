@@ -14,7 +14,7 @@ Kategorie: Dashboard
 
 ### Option B: Manuell
 ```
-1. lutarym-room-status-card-deutsch.js → config/www/
+1. lutarym-room-status-card.js → config/www/
 2. Stop.png → config/www/
 3. Home Assistant neu laden
 ```
@@ -41,7 +41,7 @@ input_select:
 ## 3️⃣ Card im Dashboard hinzufügen
 
 1. Dashboard **bearbeiten**
-2. **Karte hinzufügen** → `lutarym-room-status-card-deutsch`
+2. **Karte hinzufügen** → `Room Status by Lutarym`
 3. Im Editor rechts:
    - Position: `top-left`
    - Label: `Büro`
@@ -54,7 +54,7 @@ Wenn du ein STOP-Schild anzeigen möchtest:
 
 Im YAML-Editor:
 ```yaml
-type: custom:lutarym-room-status-card-deutsch
+type: custom:lutarym-room-status-card
 rooms:
   - position: top-left
     label: Büro
