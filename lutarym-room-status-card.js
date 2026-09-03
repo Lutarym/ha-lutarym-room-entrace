@@ -263,16 +263,30 @@ class LutarymRoomStatusCard extends HTMLElement {
     const ib = this._config?.info_box;
     if (ib?.entity) {
       const raw = Number(ib.height);
-      const h = Number.isFinite(raw) && raw > 0 ? raw : 80;
-      px += h + 24; // box plus vertical padding
+      // box-sizing is border-box, so the configured height already includes
+      // the padding. Adding it again would overstate the card by 24px.
+      px += Number.isFinite(raw) && raw > 0 ? raw : 80;
     }
     return px;
   }
 
   // Sections layout (HA 2024.11+) asks for grid rows instead of card size.
+  // n rows provide n*rowHeight + (n-1)*gap pixels, not n*rowHeight. Ignoring
+  // the gaps requests one row too many, and that surplus row is visible as
+  // empty space below the card.
   getGridOptions() {
-    const rows = Math.ceil(this._contentHeight() / 56);
-    return { columns: 12, rows, min_rows: rows };
+    const px = this._contentHeight();
+    let rh = 56, gap = 8;
+    try {
+      const cs = getComputedStyle(this);
+      const a = parseFloat(cs.getPropertyValue('--row-height'));
+      const b = parseFloat(cs.getPropertyValue('--row-gap'));
+      if (Number.isFinite(a) && a > 0) rh = a;
+      if (Number.isFinite(b) && b >= 0) gap = b;
+    } catch (e) { /* keep defaults */ }
+
+    const rows = Math.max(1, Math.ceil((px + gap) / (rh + gap)));
+    return { columns: 12, rows, min_rows: 1 };
   }
 
   static getConfigElement() {
