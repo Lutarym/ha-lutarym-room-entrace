@@ -428,6 +428,12 @@ class LutarymRoomStatusCard extends HTMLElement {
     const fsc = cfg.font_size_closed ?? 1.2;
     const cw  = cfg.corridor_width   ?? 68;
 
+    // A manually configured card height is applied as a real height, not only
+    // reported to Lovelace. Without this the card keeps its content height and
+    // the entered value only shifts the reserved space in coarse grid steps.
+    const rawCh = Number(cfg.card_height);
+    const ch = Number.isFinite(rawCh) && rawCh > 0 ? rawCh : null;
+    const hostHeight = ch ? `height:${ch}px;` : '';
     // Fixed height of the floor plan. It must not depend on whether banner or
     // text box are visible, otherwise the rooms would resize on every status
     // change that shows or hides them.
@@ -454,9 +460,9 @@ class LutarymRoomStatusCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display:block; width:100%; }
+        :host { display:block; width:100%; ${hostHeight} }
         ha-card { padding:0; overflow:hidden; min-height:100%; position:relative;
-                  box-sizing:border-box; }
+                  box-sizing:border-box; ${ch ? 'height:100%;' : ''} }
         .wrap { display:flex; flex-direction:column; }
         .grid {
           display:grid;
