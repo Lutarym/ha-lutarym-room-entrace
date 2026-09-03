@@ -69,7 +69,9 @@ const I18N = {
     alignJustify: 'Justified',
     editorShowWhen: 'Show banner when',
     showWhenAlways: 'Always show',
-    sectionInfoBox: 'Text box',
+    sectionInfoBox: 'Text box 1',
+    sectionInfoBox2: 'Text box 2 (image and text)',
+    editorInfoBox2Hint: 'Image left, text right, same as the warning banner. Leave the image path empty for text only. The block is hidden when the entity state is empty.',
     editorInfoBoxEntity: 'Text box entity',
     editorInfoBoxFontSize: 'Font size (px)',
     editorInfoBoxHeight: 'Height (px)',
@@ -131,7 +133,9 @@ const I18N = {
     alignJustify: 'Blockb\u00fcndig',
     editorShowWhen: 'Banner anzeigen bei',
     showWhenAlways: 'Dauerhaft anzeigen',
-    sectionInfoBox: 'Textfeld',
+    sectionInfoBox: 'Textfeld 1',
+    sectionInfoBox2: 'Textfeld 2 (Bild und Text)',
+    editorInfoBox2Hint: 'Bild links, Text rechts, wie beim Warnhinweis. Bildpfad leer lassen für reinen Text. Ist der Zustand der Entität leer, wird der Block ausgeblendet.',
     editorInfoBoxEntity: 'Entit\u00e4t f\u00fcr Textfeld',
     editorInfoBoxFontSize: 'Schriftgr\u00f6\u00dfe (px)',
     editorInfoBoxHeight: 'H\u00f6he (px)',
@@ -273,10 +277,17 @@ class LutarymRoomStatusCard extends HTMLElement {
 
     const ib = this._config?.info_box;
     if (ib?.entity) {
-      const raw = Number(ib.height);
       // box-sizing is border-box, so the configured height already includes
       // the padding. Adding it again would overstate the card by 24px.
-      px += Number.isFinite(raw) && raw > 0 ? raw : 80;
+      px += this._px(ib.height, 80) + 1; // plus the divider above it
+    }
+
+    const ib2 = this._config?.info_box_2;
+    if (ib2?.entity) {
+      // Same layout as the banner: as tall as image or wrapped text, plus padding.
+      const img = ib2.image_path ? this._px(ib2.image_size, 100) : 0;
+      const fs  = this._px(ib2.font_size, 16);
+      px += Math.max(img, Math.ceil(fs * 2.8)) + 32 + 1; // plus divider
     }
     return px;
   }
@@ -558,6 +569,12 @@ class LutarymRoomStatusCard extends HTMLElement {
             flex-direction: column;
           }
         }
+        .trenner {
+          flex: 0 0 auto;
+          height: 1px;
+          margin: 0 16px;
+          background: var(--divider-color, rgba(127,127,127,.35));
+        }
         .info-box {
           flex: 0 0 auto;
           box-sizing: border-box;
@@ -583,7 +600,13 @@ class LutarymRoomStatusCard extends HTMLElement {
             <img id="warning-image" class="warning-image" src="" alt="">
             <div id="warning-text" class="warning-text"></div>
           </div>
+          <div class="trenner" id="trenner-1" style="display: none;"></div>
           <div id="info-box" class="info-box" style="display: none;"></div>
+          <div class="trenner" id="trenner-2" style="display: none;"></div>
+          <div class="warning-banner" id="info-banner-2" style="display: none;">
+            <img id="info-image-2" class="warning-image" src="" alt="">
+            <div id="info-text-2" class="warning-text"></div>
+          </div>
         </div>
         <div class="popup-overlay" id="popup">
           <div class="popup-box">
@@ -669,7 +692,10 @@ class LutarymRoomStatusCard extends HTMLElement {
       const h = Math.round(
         hoehe(sr.querySelector('.grid')) +
         hoehe(sr.getElementById('warning-banner')) +
-        hoehe(sr.getElementById('info-box'))
+        hoehe(sr.getElementById('trenner-1')) +
+        hoehe(sr.getElementById('info-box')) +
+        hoehe(sr.getElementById('trenner-2')) +
+        hoehe(sr.getElementById('info-banner-2'))
       );
       if (!h) return;
       // Only report on a real change, otherwise the relayout could loop.
@@ -725,15 +751,82 @@ class LutarymRoomStatusCard extends HTMLElement {
     this._updateInfoBox();
   }
 
-  // Free-text box below the warning banner. Its content comes from an entity;
-  // when that entity is missing, unavailable or holds an empty/whitespace-only
-  // state, the box is hidden entirely.
+  // The two free-text boxes below the warning banner. Their content comes from
+  // an entity; when that entity is missing, unavailable or holds an empty or
+  // whitespace-only state, the box is hidden entirely.
+  // A divider is only shown when something is actually visible above it, so it
+  // never floats on its own.
   _updateInfoBox() {
-    const box = this.shadowRoot.getElementById('info-box');
-    if (!box) return;
+    const sr = this.shadowRoot;
+    if (!sr) return;
 
-    const cfg = this._config.info_box || {};
-    const entityId = cfg.entity;
+    const bannerSichtbar =
+      sr.getElementById('warning-banner')?.style.display !== 'none';
+
+    const eins = this._applyInfoBox(sr.getElementById('info-box'), this._config.info_box);
+    this._setzeTrenner(sr.getElementById('trenner-1'), bannerSichtbar && eins);
+
+    // Second block: same layout as the warning banner, image left, text right.
+    // The text comes from an entity, so an empty state hides the whole block.
+    const cfg2 = this._config.info_box_2 || {};
+    const zustand = cfg2.entity ? this._hass?.states[cfg2.entity]?.state : undefined;
+    const text2 = (zustand == null || zustand === 'unknown' || zustand === 'unavailable')
+      ? '' : String(zustand).trim();
+
+    const zwei = this._renderBanner(
+      sr.getElementById('info-banner-2'),
+      sr.getElementById('info-image-2'),
+      sr.getElementById('info-text-2'),
+      { sichtbar: !!text2, text: text2, image_path: cfg2.image_path,
+        image_size: cfg2.image_size, font_size: cfg2.font_size,
+        text_align: cfg2.text_align },
+    );
+    this._setzeTrenner(sr.getElementById('trenner-2'), (bannerSichtbar || eins) && zwei);
+  }
+
+  // Shared rendering for an image-left / text-right block. Returns whether the
+  // block ended up visible.
+  _renderBanner(block, imgEl, txtEl, o) {
+    if (!block || !imgEl || !txtEl) return false;
+
+    if (!o.sichtbar) {
+      block.style.display = 'none';
+      return false;
+    }
+
+    const size  = this._px(o.image_size, 100);
+    const fs    = this._px(o.font_size, 16);
+    const ALIGN = ['left', 'center', 'right', 'justify'];
+    const align = ALIGN.includes(o.text_align) ? o.text_align : 'left';
+
+    if (o.image_path) {
+      // Hide the image if it cannot be loaded, so it does not occupy space and
+      // the text stays visible.
+      imgEl.onerror = () => { imgEl.style.display = 'none'; };
+      imgEl.onload  = () => { imgEl.style.display = ''; };
+      imgEl.alt = o.text;
+      imgEl.style.width  = `${size}px`;
+      imgEl.style.height = `${size}px`;
+      if (imgEl.getAttribute('src') !== o.image_path) {
+        imgEl.style.display = '';
+        imgEl.src = o.image_path;
+      }
+    } else {
+      imgEl.style.display = 'none';
+    }
+
+    txtEl.textContent    = o.text;
+    txtEl.style.fontSize = `${fs}px`;
+    txtEl.style.textAlign = align;
+    block.style.display  = 'flex';
+    return true;
+  }
+
+  // Fills one text box, returns whether it ended up visible.
+  _applyInfoBox(box, cfg = {}) {
+    if (!box) return false;
+
+    const entityId = cfg?.entity;
     const state = entityId ? this._hass?.states[entityId]?.state : undefined;
     const text = (state == null || state === 'unknown' || state === 'unavailable')
       ? '' : String(state).trim();
@@ -741,13 +834,24 @@ class LutarymRoomStatusCard extends HTMLElement {
     if (!text) {
       box.style.display = 'none';
       box.textContent = '';
-      return;
+      return false;
     }
 
-    box.textContent  = text;
-    box.style.fontSize = `${cfg.font_size ?? 18}px`;
-    box.style.height   = `${cfg.height ?? 80}px`;
+    box.textContent    = text;
+    box.style.fontSize = `${this._px(cfg.font_size, 18)}px`;
+    box.style.height   = `${this._px(cfg.height, 80)}px`;
     box.style.display  = 'flex';
+    return true;
+  }
+
+  _setzeTrenner(el, sichtbar) {
+    if (el) el.style.display = sichtbar ? 'block' : 'none';
+  }
+
+  // Positive number from the configuration, otherwise the fallback.
+  _px(wert, fallback) {
+    const n = Number(wert);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
   }
 
   _updateWarningBanner() {
@@ -1463,14 +1567,14 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
       ));
     }
 
-    // Textfeld (info box)
+    // Textfeld 1 (info box)
     const ib = cfg.info_box || {};
     const infoLabel = document.createElement('div');
     infoLabel.className = 'section-label';
     infoLabel.textContent = t(hass, 'sectionInfoBox');
     form.appendChild(infoLabel);
 
-    form.appendChild(this._infoBoxEntityRow(t(hass, 'editorInfoBoxEntity'), ib.entity));
+    form.appendChild(this._infoBoxEntityRow(t(hass, 'editorInfoBoxEntity'), 'info_box.entity', ib.entity));
     form.appendChild(this._sideBySide(
       this._numberRow(t(hass, 'editorInfoBoxFontSize'), 'info_box.font_size', ib.font_size ?? 18, 18),
       this._numberRow(t(hass, 'editorInfoBoxHeight'), 'info_box.height', ib.height ?? 80, 80),
@@ -1480,11 +1584,38 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     infoHint.className = 'hint';
     infoHint.textContent = t(hass, 'editorInfoBoxHint');
     form.appendChild(infoHint);
+
+    // Textfeld 2 (second info box)
+    const ib2 = cfg.info_box_2 || {};
+    const infoLabel2 = document.createElement('div');
+    infoLabel2.className = 'section-label';
+    infoLabel2.textContent = t(hass, 'sectionInfoBox2');
+    form.appendChild(infoLabel2);
+
+    form.appendChild(this._infoBoxEntityRow(t(hass, 'editorInfoBoxEntity'), 'info_box_2.entity', ib2.entity));
+    form.appendChild(this._stringRow(t(hass, 'editorImagePath'), 'info_box_2.image_path', ib2.image_path, t(hass, 'automatic')));
+    form.appendChild(this._sideBySide(
+      this._numberRow(t(hass, 'editorImageSize'), 'info_box_2.image_size', ib2.image_size ?? 100, 100),
+      this._numberRow(t(hass, 'editorInfoBoxFontSize'), 'info_box_2.font_size', ib2.font_size ?? 16, 16),
+    ));
+    form.appendChild(this._selectRow(
+      t(hass, 'editorTextAlign'), 'info_box_2.text_align', ib2.text_align || 'left',
+      [
+        { value: 'left',    label: t(hass, 'alignLeft') },
+        { value: 'center',  label: t(hass, 'alignCenter') },
+        { value: 'right',   label: t(hass, 'alignRight') },
+        { value: 'justify', label: t(hass, 'alignJustify') },
+      ],
+    ));
+    const info2Hint = document.createElement('div');
+    info2Hint.className = 'hint';
+    info2Hint.textContent = t(hass, 'editorInfoBox2Hint');
+    form.appendChild(info2Hint);
   }
 
-  // Entity picker for the info box. Any domain is allowed, since the text may
+  // Entity picker for a text box. Any domain is allowed, since the text may
   // come from an input_text, a template sensor, or anything else.
-  _infoBoxEntityRow(label, value) {
+  _infoBoxEntityRow(label, field, value) {
     const wrap = document.createElement('div');
     wrap.className = 'row';
     wrap.innerHTML = `<label>${label}</label>`;
@@ -1494,7 +1625,7 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     selector.value = value ?? '';
     selector.addEventListener('value-changed', ev => {
       ev.stopPropagation();
-      this._onChange('info_box.entity', ev.detail.value || '');
+      this._onChange(field, ev.detail.value || '');
     });
     wrap.appendChild(selector);
     return wrap;

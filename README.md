@@ -124,6 +124,35 @@ Im Editor heißt das Feld "Kartenhöhe (px)". Bleibt es leer, rechnet die Karte
 wie bisher selbst. Steht ein Wert darin, hat dieser Vorrang, und die Karte
 misst sich nicht mehr selbst.
 
+### Textfelder
+
+Unter dem Warnhinweis können zwei weitere Blöcke eingeblendet werden. Zwischen
+den Blöcken erscheint eine Trennlinie, aber nur wenn darüber tatsächlich etwas
+sichtbar ist.
+
+**Textfeld 1 (`info_box`)** ist reiner Text, zentriert, mit fester Höhe.
+
+**Textfeld 2 (`info_box_2`)** ist wie der Warnhinweis aufgebaut: links eine
+Grafik, rechts der Text.
+
+```yaml
+info_box:
+  entity: input_text.raum_hinweis
+  font_size: 20
+  height: 80
+
+info_box_2:
+  entity: input_text.zweiter_hinweis
+  image_path: /local/Info.png
+  image_size: 100
+  font_size: 16
+  text_align: left
+```
+
+Der Text beider Blöcke kommt aus dem Zustand der Entität. Ist er leer, `unknown`
+oder `unavailable`, wird der jeweilige Block ausgeblendet, zusammen mit seiner
+Trennlinie. Lässt du bei Textfeld 2 den Bildpfad leer, erscheint nur der Text.
+
 ### Textfeld (`info_box`)
 
 | Parameter | Typ | Standard | Beschreibung |
