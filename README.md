@@ -95,6 +95,7 @@ warning_banner:
 | `image_path` | string | `/local/Stop.png` | Pfad zum Bild (PNG) |
 | `image_size` | number | `100` | Kantenlänge des Bildes in px |
 | `font_size` | number | `16` | Schriftgröße des Warntextes in px |
+| `text_align` | string | `left` | Ausrichtung: `left`, `center`, `right`, `justify` |
 | `text` | string | `Bitte erst eintreten...` | Warntext |
 | `show_when` | string | `belegt` | `immer` für Daueranzeige, sonst der Status, bei dem eingeblendet wird |
 
@@ -211,6 +212,7 @@ warning_banner:
   image_path: /local/Stop.png
   image_size: 120
   font_size: 22
+  text_align: center
   text: Bitte erst eintreten wenn der Raum frei ist
   show_when: immer
 ```
