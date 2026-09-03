@@ -81,6 +81,9 @@ const I18N = {
     editorCorridorWidth: 'Corridor width (px)',
     editorPersonIconSize: 'Person icon size (px)',
     editorRoomHeight: 'Floor plan height (px)',
+    editorCardHeight: 'Card height (px)',
+    automatic: 'automatic',
+    editorCardHeightHint: 'Leave empty to let the card determine its height. Enter a value to set the height Home Assistant reserves for this card.',
     editorArrowAnimation: 'Arrow animation',
     anim1: '1 – Draw', anim2: '2 – Pulse', anim3: '3 – Blink', anim4: '4 – Glow', anim5: '5 – Bounce',
     anim6: '6 – Flow', anim7: '7 – Wave', anim8: '8 – Chase', anim9: '9 – Dots', anim10: '10 – Runlight',
@@ -140,6 +143,9 @@ const I18N = {
     editorCorridorWidth: 'Flurbreite (px)',
     editorPersonIconSize: 'Größe Personensymbol (px)',
     editorRoomHeight: 'Höhe Raumplan (px)',
+    editorCardHeight: 'Kartenhöhe (px)',
+    automatic: 'automatisch',
+    editorCardHeightHint: 'Leer lassen, damit die Karte ihre Höhe selbst ermittelt. Ein Wert legt fest, wie viel Platz Home Assistant für diese Karte reserviert.',
     editorArrowAnimation: 'Pfeil-Animation',
     anim1: '1 – Zeichnen', anim2: '2 – Pulsieren', anim3: '3 – Blinken', anim4: '4 – Glühen', anim5: '5 – Springen',
     anim6: '6 – Fließen', anim7: '7 – Welle', anim8: '8 – Chase', anim9: '9 – Punkte', anim10: '10 – Lauflicht',
@@ -241,9 +247,14 @@ class LutarymRoomStatusCard extends HTMLElement {
     return Math.ceil(this._contentHeight() / 50);
   }
 
-  // Estimated height of the whole card in pixels. Used until the card has been
-  // rendered once and could measure itself.
+  // Height of the whole card in pixels, in order of priority:
+  //   1. card_height from the configuration, if the user set one
+  //   2. the measured height, once the card has rendered at least once
+  //   3. an estimate from the configured values
   _contentHeight() {
+    const manuell = Number(this._config?.card_height);
+    if (Number.isFinite(manuell) && manuell > 0) return manuell;
+
     if (this._measuredHeight > 0) return this._measuredHeight;
 
     const rawRh = Number(this._config?.room_height);
@@ -286,7 +297,10 @@ class LutarymRoomStatusCard extends HTMLElement {
     } catch (e) { /* keep defaults */ }
 
     const rows = Math.max(1, Math.ceil((px + gap) / (rh + gap)));
-    return { columns: 12, rows, min_rows: 1 };
+    // min_rows must be the number of rows the card actually needs. Reporting
+    // less lets Lovelace assign too little space, and ha-card's overflow:hidden
+    // then cuts off the banner and the text box.
+    return { columns: 12, rows, min_rows: rows };
   }
 
   static getConfigElement() {
@@ -441,7 +455,8 @@ class LutarymRoomStatusCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display:block; width:100%; }
-        ha-card { padding:0; overflow:hidden; position:relative; }
+        ha-card { padding:0; overflow:hidden; min-height:100%; position:relative;
+                  box-sizing:border-box; }
         .wrap { display:flex; flex-direction:column; }
         .grid {
           display:grid;
@@ -636,6 +651,10 @@ class LutarymRoomStatusCard extends HTMLElement {
   // that space straight back as the new height and never shrink again.
   _measureHeight() {
     try {
+      // A manually configured height wins. Measuring would only fight it.
+      const manuell = Number(this._config?.card_height);
+      if (Number.isFinite(manuell) && manuell > 0) return;
+
       const sr = this.shadowRoot;
       if (!sr) return;
       const hoehe = el => (el && el.style.display !== 'none')
@@ -1248,6 +1267,12 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
       this._numberRow(t(hass, 'editorCorridorWidth'), 'corridor_width', cfg.corridor_width ?? 68, 68),
       this._numberRow(t(hass, 'editorRoomHeight'), 'room_height', cfg.room_height ?? 250, 250),
     ));
+    form.appendChild(this._numberRow(
+      t(hass, 'editorCardHeight'), 'card_height', cfg.card_height, t(hass, 'automatic')));
+    const chHint = document.createElement('div');
+    chHint.className = 'hint';
+    chHint.textContent = t(hass, 'editorCardHeightHint');
+    form.appendChild(chHint);
     form.appendChild(this._numberRow(t(hass, 'editorPersonIconSize'), 'person_icon_size', cfg.person_icon_size ?? 34, 34));
     form.appendChild(this._selectRow(t(hass, 'editorArrowAnimation'), 'arrow_animation', cfg.arrow_animation ?? 1, [
       { value: '1', label: t(hass, 'anim1') }, { value: '2', label: t(hass, 'anim2') },

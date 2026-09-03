@@ -111,6 +111,19 @@ room_height: 300
 
 Einstellbar auch im Editor unter "Höhe Raumplan (px)". Standard ist 250.
 
+### Kartenhöhe
+
+Normalerweise ermittelt die Karte selbst, wie viel Platz sie braucht. Passt das
+in deinem Dashboard nicht, kannst du den Wert selbst vorgeben:
+
+```yaml
+card_height: 520
+```
+
+Im Editor heißt das Feld "Kartenhöhe (px)". Bleibt es leer, rechnet die Karte
+wie bisher selbst. Steht ein Wert darin, hat dieser Vorrang, und die Karte
+misst sich nicht mehr selbst.
+
 ### Textfeld (`info_box`)
 
 | Parameter | Typ | Standard | Beschreibung |
@@ -128,6 +141,7 @@ Das Feld nutzt immer die volle Breite. Ist der Zustand der Entität leer,
 |-----------|-----|----------|-------------|
 | `corridor_width` | number | `68` | Breite des Flurs in Prozent |
 | `room_height` | number | `250` | Feste Höhe des Raumplans in px |
+| `card_height` | number | automatisch | Höhe, die HA für die Karte reserviert. Leer lassen für automatisch |
 | `person_icon_size` | number | `34` | Größe des Personensymbols in px |
 | `arrow_animation` | number | `1` | Pfeil-Animationstyp (1-10) |
 | `font_size_label` | number | `1.2` | Schriftgröße Raumlabels |
