@@ -1,6 +1,6 @@
 # Room Status by Lutarym (Deutsche Version)
 
-Eine **Lovelace Custom Card für Home Assistant** — eine Büro-Grundriss-Karte, die bis zu 4 Räume um einen zentralen Flur herum zeigt. Jeder Raum ist farbig nach Status gekennzeichnet (belegt / nicht besetzt / frei / reserviert / geschlossen), mit einem animierten Pfeil, der zum nächsten freien Raum zeigt, einer Personenfigur im Flur wenn irgendein Raum aktiv ist, und einem Popup zum Status-Wechsel.
+Eine **Lovelace Custom Card für Home Assistant**: eine Büro-Grundriss-Karte, die bis zu 4 Räume um einen zentralen Flur herum zeigt. Jeder Raum ist farbig nach Status gekennzeichnet (belegt / nicht besetzt / frei / reserviert / geschlossen), mit einem animierten Pfeil, der zum nächsten freien Raum zeigt, einer Personenfigur im Flur wenn irgendein Raum aktiv ist, und einem Popup zum Status-Wechsel.
 
 **Neu:** Warning Banner zur Anzeige von Warnsignalen (z.B. STOP-Schild) wenn ein Raum belegt ist!
 
@@ -21,7 +21,7 @@ Eine **Lovelace Custom Card für Home Assistant** — eine Büro-Grundriss-Karte
 ## Installation via HACS
 
 1. HACS → Frontend → **⋮** → Custom repositories
-2. Repository URL eintragen: `https://github.com/dein-username/lutarym-room-status-card-deutsch`
+2. Repository URL eintragen: `https://github.com/Lutarym/ha-lutarym-room-entrace`
 3. Kategorie: **Dashboard**
 4. "Room Status by Lutarym (Deutsch)" installieren
 5. Home Assistant neu laden (Browser-Cache leeren!)
@@ -140,6 +140,8 @@ info_box:
   entity: input_text.raum_hinweis
   font_size: 20
   height: 80
+  font_family: arial
+  font_weight: bold
 
 info_box_2:
   entity: input_text.zweiter_hinweis
@@ -147,28 +149,60 @@ info_box_2:
   image_size: 100
   font_size: 16
   text_align: left
+  font_family: georgia
+  italic: true
 ```
 
 Der Text beider Blöcke kommt aus dem Zustand der Entität. Ist er leer, `unknown`
 oder `unavailable`, wird der jeweilige Block ausgeblendet, zusammen mit seiner
 Trennlinie. Lässt du bei Textfeld 2 den Bildpfad leer, erscheint nur der Text.
 
-### Textfeld (`info_box`)
+### Textfeld 1 (`info_box`)
 
 | Parameter | Typ | Standard | Beschreibung |
 |-----------|-----|----------|-------------|
-| `entity` | string | - | Entität, deren Zustand als Text erscheint |
+| `entity` | string | | Entität, deren Zustand als Text erscheint |
 | `font_size` | number | `18` | Schriftgröße in px |
 | `height` | number | `80` | Höhe des Feldes in px |
+| `font_family` | string | `theme` | Schriftart, siehe unten |
+| `font_weight` | string | `normal` | `normal`, `semibold` oder `bold` |
+| `italic` | boolean | `false` | Kursiv |
+| `underline` | boolean | `false` | Unterstrichen |
 
-Das Feld nutzt immer die volle Breite. Ist der Zustand der Entität leer,
-`unknown` oder `unavailable`, wird das Feld ausgeblendet.
+Das Feld nutzt immer die volle Breite und zentriert den Text.
+
+### Textfeld 2 (`info_box_2`)
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|----------|-------------|
+| `entity` | string | | Entität, deren Zustand als Text erscheint |
+| `image_path` | string | | Pfad zur Grafik links. Leer: nur Text |
+| `image_size` | number | `100` | Kantenlänge der Grafik in px |
+| `font_size` | number | `16` | Schriftgröße in px |
+| `text_align` | string | `left` | `left`, `center`, `right`, `justify` |
+| `font_family` | string | `theme` | Schriftart, siehe unten |
+| `font_weight` | string | `semibold` | `normal`, `semibold` oder `bold` |
+| `italic` | boolean | `false` | Kursiv |
+| `underline` | boolean | `false` | Unterstrichen |
+
+### Schriftarten
+
+Werte für `font_family`: `theme` (Schrift des Dashboards), `roboto`, `arial`,
+`verdana`, `tahoma`, `trebuchet`, `georgia`, `times`, `courier`, sowie die
+Systemschriften `sans` (serifenlos), `serif` (mit Serifen) und `mono`
+(Festbreite).
+
+Die Schrift muss auf dem Anzeigegerät vorhanden sein. Fehlt sie, wird eine
+ähnliche verwendet. Roboto liefert Home Assistant selbst mit, sie ist also
+überall verfügbar.
+
+Im Editor stehen die Optionen in den Abschnitten "Textfeld 1" und "Textfeld 2".
 
 ### Globale Konfiguration
 
 | Parameter | Typ | Standard | Beschreibung |
 |-----------|-----|----------|-------------|
-| `corridor_width` | number | `68` | Breite des Flurs in Prozent |
+| `corridor_width` | number | `68` | Breite des Flurs in px |
 | `room_height` | number | `250` | Feste Höhe des Raumplans in px |
 | `card_height` | number | automatisch | Höhe, die HA für die Karte reserviert. Leer lassen für automatisch |
 | `person_icon_size` | number | `34` | Größe des Personensymbols in px |
@@ -209,24 +243,24 @@ input_text:
 
 ## Status-Werte (Deutsch)
 
-- **frei** — Raum ist frei, Pfeil zeigt darauf
-- **belegt** — Raum ist von Person besetzt
-- **nicht besetzt** — Raum ist nicht besetzt
-- **reserviert** — Raum ist reserviert
-- **geschlossen** — Raum ist geschlossen (wird ausgegraut)
+- **frei**: Raum ist frei, Pfeil zeigt darauf
+- **belegt**: Raum ist von Person besetzt
+- **nicht besetzt**: Raum ist nicht besetzt
+- **reserviert**: Raum ist reserviert
+- **geschlossen**: Raum ist geschlossen (wird ausgegraut)
 
 ## Pfeil-Animationen
 
-1. **Draw** — Wird gezeichnet
-2. **Pulse** — Pulsiert
-3. **Blink** — Blinkt
-4. **Glow** — Leuchtet
-5. **Bounce** — Springt
-6. **Flow** — Fließt
-7. **Wave** — Welleneffekt
-8. **Chase** — Verfolgung
-9. **Dots** — Punkte
-10. **Runlight** — Lauflicht
+1. **Draw**: Wird gezeichnet
+2. **Pulse**: Pulsiert
+3. **Blink**: Blinkt
+4. **Glow**: Leuchtet
+5. **Bounce**: Springt
+6. **Flow**: Fließt
+7. **Wave**: Welleneffekt
+8. **Chase**: Verfolgung
+9. **Dots**: Punkte
+10. **Runlight**: Lauflicht
 
 ## Editor konfigurieren
 
@@ -302,6 +336,8 @@ Private Nutzung
 - ✨ Alle deutsches UI und Dokumentation
 - ✨ Editor-Konfiguration für Warning Banner
 - ✨ Responsive Design für mobil
+- ✨ Textfeld 1 und 2 mit Inhalt aus Entitäten, je mit Schriftart, Schriftstärke, kursiv und unterstrichen
+- ✨ Kartenhöhe und Höhe des Raumplans einstellbar
 
 ---
 

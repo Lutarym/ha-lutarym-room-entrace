@@ -1,15 +1,19 @@
 /**
  * lutarym-room-status-card.js
- * Lovelace Custom Card — office room status floor plan
+ * Lovelace custom card: office room status floor plan
  *
  * Shows up to 4 rooms arranged around a central corridor (top-left,
  * top-right, bottom-left, bottom-right), each colored by status
- * (occupied / appointment / free / reserved / closed), with an animated arrow
- * pointing toward whichever room is currently "free", a walking-person
- * icon in the corridor when any room is active, and a popup (tap a room)
- * to change its status. Each room's status is stored in a single text or
- * select helper entity (`input_text` or `input_select`) picked per room
- * in the visual editor — not in localStorage.
+ * (frei / nicht besetzt / belegt / reserviert / geschlossen), with an
+ * animated arrow pointing toward rooms whose status has wayfinding enabled,
+ * a person icon in the corridor when any room is active, and a popup (tap a
+ * room) to change its status. Each room's status is stored in one text or
+ * select helper (`input_text` or `input_select`) picked per room in the
+ * visual editor.
+ *
+ * Below the floor plan there are three optional blocks: a warning banner
+ * (image and text), text box 1 (text only) and text box 2 (image and text).
+ * The two text boxes take their text from an entity and hide when it is empty.
  *
  * INSTALLATION
  *   1. Copy the file to /config/www/lutarym-room-status-card.js
@@ -17,37 +21,61 @@
  *        URL:  /local/lutarym-room-status-card.js
  *        Type: JavaScript Module
  *   3. Clear your browser cache (Ctrl+F5)
- *   4. Create one text/select helper per room: Settings > Devices &
- *      Services > Helpers > + Add Helper > Text (or Dropdown). Its state
- *      must be exactly "occupied", "appointment", "free", "reserved", or "closed".
- *      Then select it per room in the visual editor.
+ *   4. Create one text or dropdown helper per room. Its state must be exactly
+ *      "frei", "nicht besetzt", "belegt", "reserviert" or "geschlossen"; a
+ *      dropdown helper needs all five as options. Then pick it per room in
+ *      the visual editor.
  *
- * CONFIGURATION
+ * CONFIGURATION (all optional except rooms)
  *   type: custom:lutarym-room-status-card
- *   corridor_width: 68                          # optional, px (default 68)
- *   arrow_animation: 1                             # optional, 1-10 (see below)
- *   font_size_label: 1.2                            # optional, em (default 1.2)
- *   font_size_person: 0.88                          # optional, em (default 0.88)
- *   font_size_status: 1.05                          # optional, em (default 1.05)
- *   font_size_closed: 1.2                            # optional, em (default 1.2)
- *   person_icon_size: 34                              # optional, px (default 34)
- *   status_show_wayfinding:                         # optional, per-status arrow visibility (default: only "free")
- *     free: true
- *     reserved: true
- *   rooms:                                        # REQUIRED, 1-4 rooms
- *     - label: Room 1
- *       person: Jane Doe
- *       position: bottom-left                    # top-left | top-right | bottom-left | bottom-right
- *       entity: input_select.room1_status
- *     - label: Room 2
- *       person: John Smith
- *       position: top-right
- *       entity: input_text.room2_status
- *     - position: top-left                       # Emergency Exit — label/person/entity not needed
+ *   corridor_width: 68            # px
+ *   room_height: 250              # px, fixed height of the floor plan
+ *   card_height:                  # px, empty = automatic
+ *   arrow_animation: 1            # 1-10
+ *   font_size_label: 1.2          # em
+ *   font_size_person: 0.88        # em
+ *   font_size_status: 1.05        # em
+ *   font_size_closed: 1.2         # em
+ *   person_icon_size: 34          # px
+ *   status_show_wayfinding:       # default: arrows only for "frei"
+ *     frei: true
+ *     reserviert: true
+ *   warning_banner:
+ *     enabled: true
+ *     image_path: /local/Stop.png
+ *     image_size: 100             # px
+ *     font_size: 16               # px
+ *     text_align: left            # left | center | right | justify
+ *     text: Bitte erst eintreten wenn der Raum frei ist
+ *     show_when: belegt           # immer | a status value
+ *   info_box:                     # text box 1
+ *     entity: input_text.hinweis
+ *     font_size: 18               # px
+ *     height: 80                  # px
+ *     font_family: theme          # see FONTS below
+ *     font_weight: normal         # normal | semibold | bold
+ *     italic: true
+ *     underline: true
+ *   info_box_2:                   # text box 2, image left, text right
+ *     entity: input_text.hinweis_2
+ *     image_path: /local/Info.png # empty = text only
+ *     image_size: 100
+ *     font_size: 16
+ *     text_align: left
+ *     font_family: theme
+ *     font_weight: semibold       # normal | semibold | bold
+ *     italic: true
+ *     underline: true
+ *   rooms:                        # REQUIRED, 1-4 rooms
+ *     - label: Raum 1
+ *       person: Max Mustermann
+ *       position: bottom-left     # top-left | top-right | bottom-left | bottom-right
+ *       entity: input_select.raum1_status
+ *     - position: top-left        # emergency exit, needs no label or entity
  *       is_exit: true
  */
 
-const VERSION = '1.0.0';
+const VERSION = '2.0.0';
 
 // ── Simple i18n helper (falls back to English) ─────────────────────────
 
@@ -76,6 +104,19 @@ const I18N = {
     editorInfoBoxFontSize: 'Font size (px)',
     editorInfoBoxHeight: 'Height (px)',
     editorInfoBoxHint: 'The text box shows this entity\u2019s state. When the state is empty, the box is hidden.',
+    noImage: 'no image',
+    editorFontFamily: 'Font',
+    editorFontWeight: 'Font weight',
+    weightNormal: 'Normal',
+    weightSemibold: 'Semibold',
+    weightBold: 'Bold',
+    editorItalic: 'Italic',
+    editorUnderline: 'Underlined',
+    fontTheme: 'Default (theme)',
+    fontSans: 'Sans serif (system)',
+    fontSerif: 'Serif (system)',
+    fontMono: 'Monospace (system)',
+    editorFontHint: 'The font must be installed on the display device, otherwise a similar one is used.',
     statusOccupied: 'Occupied',
     statusReserved: 'Reserved',
     statusClosed: 'Closed',
@@ -103,7 +144,7 @@ const I18N = {
     editorLabelClosed: 'Label: Closed',
     sectionRooms: 'Rooms ({count}/4)',
     roomsHint: 'Up to 4 rooms, one per corner of the floor plan. Mark one as the Emergency Exit instead of a bookable room if needed.',
-    helpersHint: 'For each room, create one text or select helper in Home Assistant that holds the status as text: Settings → Devices & Services → Helpers → + Add Helper → Text (or Dropdown). Its state must be exactly "occupied", "appointment", "free", "reserved", or "closed". Then select it below.',
+    helpersHint: 'For each room, create one text or select helper in Home Assistant that holds the status as text: Settings → Devices & Services → Helpers → + Add Helper → Text (or Dropdown). Its state must be exactly "frei", "nicht besetzt", "belegt", "reserviert" or "geschlossen"; a dropdown helper needs all five as options. Then select it below.',
     roomHeaderLabel: 'Room {n}',
     removeLabel: 'Remove',
     addRoomLabel: '+ Add room',
@@ -114,7 +155,7 @@ const I18N = {
     editorRoomIsExit: 'This is the Emergency Exit (not a bookable room)',
     posTopLeft: 'Top left', posTopRight: 'Top right', posBottomLeft: 'Bottom left', posBottomRight: 'Bottom right',
     cardName: 'Room Status by Lutarym',
-    cardDescription: 'Office floor-plan card showing room status (occupied/appointment/free/reserved/closed) with animated wayfinding arrows and a tap-to-change popup.',
+    cardDescription: 'Office floor-plan card showing room status (frei/nicht besetzt/belegt/reserviert/geschlossen) with animated wayfinding arrows and a tap-to-change popup.',
   },
   de: {
     emergencyExit: 'Notausgang',
@@ -140,6 +181,19 @@ const I18N = {
     editorInfoBoxFontSize: 'Schriftgr\u00f6\u00dfe (px)',
     editorInfoBoxHeight: 'H\u00f6he (px)',
     editorInfoBoxHint: 'Das Textfeld zeigt den Zustand dieser Entit\u00e4t. Ist der Zustand leer, wird das Feld ausgeblendet.',
+    noImage: 'kein Bild',
+    editorFontFamily: 'Schriftart',
+    editorFontWeight: 'Schriftst\u00e4rke',
+    weightNormal: 'Normal',
+    weightSemibold: 'Halbfett',
+    weightBold: 'Fett',
+    editorItalic: 'Kursiv',
+    editorUnderline: 'Unterstrichen',
+    fontTheme: 'Standard (Theme)',
+    fontSans: 'Serifenlos (System)',
+    fontSerif: 'Mit Serifen (System)',
+    fontMono: 'Festbreite (System)',
+    editorFontHint: 'Die Schrift muss auf dem Anzeigeger\u00e4t vorhanden sein, sonst wird eine \u00e4hnliche verwendet.',
     statusOccupied: 'Belegt',
     statusReserved: 'Reserviert',
     statusClosed: 'Geschlossen',
@@ -167,7 +221,7 @@ const I18N = {
     editorLabelClosed: 'Beschriftung: Geschlossen',
     sectionRooms: 'Räume ({count}/4)',
     roomsHint: 'Bis zu 4 Räume, je einer pro Ecke des Grundrisses. Einen davon kannst du statt als buchbaren Raum als Notausgang markieren.',
-    helpersHint: 'Für jeden Raum wird ein Text- oder Auswahl-Helfer in Home Assistant benötigt, der den Status als Text enthält: Einstellungen → Geräte & Dienste → Helfer → + Helfer hinzufügen → Text (oder Dropdown). Der Zustand muss genau "occupied", "appointment", "free", "reserved" oder "closed" lauten. Anschließend unten auswählen.',
+    helpersHint: 'Für jeden Raum wird ein Text- oder Auswahl-Helfer in Home Assistant benötigt, der den Status als Text enthält: Einstellungen → Geräte & Dienste → Helfer → + Helfer hinzufügen → Text (oder Dropdown). Der Zustand muss genau "frei", "nicht besetzt", "belegt", "reserviert" oder "geschlossen" lauten. Ein Dropdown-Helfer braucht alle fünf als Optionen. Anschließend unten auswählen.',
     roomHeaderLabel: 'Raum {n}',
     removeLabel: 'Entfernen',
     addRoomLabel: '+ Raum hinzufügen',
@@ -194,14 +248,69 @@ function t(hass, key, vars) {
   return str;
 }
 
+// The single list of status values, in popup order. Every other place in the
+// code derives from it, so a renamed status cannot be missed somewhere.
+const STATUSES = ['frei', 'nicht besetzt', 'belegt', 'reserviert', 'geschlossen'];
+
 // Status colors are language-independent; labels come from I18N/status_labels.
+// `text` is the text color on top of the status color.
 const STATUS_COLORS = {
-  belegt:       { bg: '#F50000', dark: '#B00000' },
-  'nicht besetzt': { bg: '#FFD600', dark: '#F9A800' },
-  frei:         { bg: '#00C853', dark: '#009624' },
-  reserviert:   { bg: '#2196F3', dark: '#0D47A1' },
-  geschlossen:  { bg: '#546E7A', dark: '#37474F' },
+  frei:            { bg: '#00C853', dark: '#009624', text: '#fff' },
+  'nicht besetzt': { bg: '#FFD600', dark: '#F9A800', text: '#1A1A1A' },
+  belegt:          { bg: '#F50000', dark: '#B00000', text: '#fff' },
+  reserviert:      { bg: '#2196F3', dark: '#0D47A1', text: '#fff' },
+  geschlossen:     { bg: '#546E7A', dark: '#37474F', text: '#fff' },
 };
+
+// I18N key of each status's default label.
+const STATUS_LABEL_KEYS = {
+  frei: 'statusFree',
+  'nicht besetzt': 'statusAppointment',
+  belegt: 'statusOccupied',
+  reserviert: 'statusReserved',
+  geschlossen: 'statusClosed',
+};
+
+const ALIGN_VALUES = ['left', 'center', 'right', 'justify'];
+
+const POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+
+const DEFAULT_WARNING_TEXT = 'Bitte erst eintreten wenn der Raum frei ist';
+
+// Fonts selectable for the text boxes. "theme" keeps the dashboard font.
+// Every stack ends in a generic family, so a font that is missing on the
+// display device falls back to a similar one instead of the browser default.
+// Entries with `i18n` get a translated label, the others show their name.
+const FONTS = [
+  { key: 'theme',     i18n: 'fontTheme', stack: '' },
+  { key: 'roboto',    label: 'Roboto',          stack: 'Roboto, Noto, sans-serif' },
+  { key: 'arial',     label: 'Arial',           stack: 'Arial, Helvetica, sans-serif' },
+  { key: 'verdana',   label: 'Verdana',         stack: 'Verdana, Geneva, sans-serif' },
+  { key: 'tahoma',    label: 'Tahoma',          stack: 'Tahoma, Verdana, sans-serif' },
+  { key: 'trebuchet', label: 'Trebuchet MS',    stack: '"Trebuchet MS", Helvetica, sans-serif' },
+  { key: 'georgia',   label: 'Georgia',         stack: 'Georgia, "Times New Roman", serif' },
+  { key: 'times',     label: 'Times New Roman', stack: '"Times New Roman", Times, serif' },
+  { key: 'courier',   label: 'Courier New',     stack: '"Courier New", Courier, monospace' },
+  { key: 'sans',      i18n: 'fontSans',  stack: 'sans-serif' },
+  { key: 'serif',     i18n: 'fontSerif', stack: 'serif' },
+  { key: 'mono',      i18n: 'fontMono',  stack: 'monospace' },
+];
+const FONT_STACKS = Object.fromEntries(FONTS.map(f => [f.key, f.stack]));
+const FONT_WEIGHTS = { normal: 400, semibold: 600, bold: 700 };
+
+// Own-property lookup, so a config value like "constructor" cannot pick up
+// something from Object.prototype.
+function own(map, key) {
+  return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
+}
+
+// Positive number from the configuration, otherwise the fallback. Catches
+// typos such as "1,2" (decimal comma), 0, negative values or text, which
+// would otherwise end up as invalid CSS.
+function positiv(wert, fallback) {
+  const n = Number(wert);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 function esc(s) {
   return String(s ?? '')
@@ -223,6 +332,16 @@ class LutarymRoomStatusCard extends HTMLElement {
     this._hass      = null;
     this._config    = null;
     this._popupId   = null;
+    this._byPos     = {};      // position -> the room actually rendered there
+    this._observers = [];      // active ResizeObservers
+  }
+
+  connectedCallback() {
+    if (this._built) this._observeSize();
+  }
+
+  disconnectedCallback() {
+    this._unobserve();
   }
 
   setConfig(config) {
@@ -238,9 +357,34 @@ class LutarymRoomStatusCard extends HTMLElement {
   }
 
   set hass(hass) {
+    const alt = this._hass;
     this._hass = hass;
-    if (!this._built) this._build();
-    else              this._update();
+    if (!this._built) { this._build(); return; }
+    // Labels are built into the DOM, so another UI language needs a rebuild.
+    if (alt && alt.language !== hass.language) { this._build(); return; }
+    if (this._relevantChanged(alt, hass)) this._update();
+  }
+
+  // Home Assistant sets hass on every state change of any entity. Only the
+  // entities this card shows matter. An entity's state object is replaced
+  // exactly when that entity changes, so comparing objects is enough; Home
+  // Assistant's own cards check for changes the same way.
+  _relevantChanged(alt, neu) {
+    if (!alt) return true;
+    return this._watchedEntities().some(id => alt.states[id] !== neu.states[id]);
+  }
+
+  _watchedEntities() {
+    const c = this._config || {};
+    const ids = (c.rooms || []).filter(r => !r.is_exit && r.entity).map(r => r.entity);
+    if (c.info_box?.entity)   ids.push(c.info_box.entity);
+    if (c.info_box_2?.entity) ids.push(c.info_box_2.entity);
+    return ids;
+  }
+
+  // Rooms that are actually rendered (one per position).
+  _rooms() {
+    return Object.values(this._byPos);
   }
 
   // Height the card reports to Home Assistant. The floor plan alone is 5 units
@@ -256,38 +400,31 @@ class LutarymRoomStatusCard extends HTMLElement {
   //   2. the measured height, once the card has rendered at least once
   //   3. an estimate from the configured values
   _contentHeight() {
-    const manuell = Number(this._config?.card_height);
-    if (Number.isFinite(manuell) && manuell > 0) return manuell;
+    const c = this._config || {};
+    const manuell = positiv(c.card_height, null);
+    if (manuell) return manuell;
 
     if (this._measuredHeight > 0) return this._measuredHeight;
 
-    const rawRh = Number(this._config?.room_height);
-    let px = Number.isFinite(rawRh) && rawRh > 0 ? rawRh : 250; // floor plan
+    let px = positiv(c.room_height, 250); // floor plan
 
-    const wb = this._config?.warning_banner;
+    const wb = c.warning_banner;
     if (wb?.enabled) {
-      const rawImg = Number(wb.image_size);
-      const img = Number.isFinite(rawImg) && rawImg > 0 ? rawImg : 100;
-      const rawFs = Number(wb.font_size);
-      const fs = Number.isFinite(rawFs) && rawFs > 0 ? rawFs : 16;
       // The banner is as tall as whichever is taller: the image, or the text
-      // assuming it wraps onto two lines (line-height 1.4).
-      px += Math.max(img, Math.ceil(fs * 2.8)) + 32;
+      // assuming it wraps onto two lines (line-height 1.4), plus padding.
+      px += Math.max(positiv(wb.image_size, 100),
+                     Math.ceil(positiv(wb.font_size, 16) * 2.8)) + 32;
     }
 
-    const ib = this._config?.info_box;
-    if (ib?.entity) {
-      // box-sizing is border-box, so the configured height already includes
-      // the padding. Adding it again would overstate the card by 24px.
-      px += this._px(ib.height, 80) + 1; // plus the divider above it
-    }
+    // box-sizing is border-box, so the configured height already includes
+    // the padding. +1 for the divider above the box.
+    if (c.info_box?.entity) px += positiv(c.info_box.height, 80) + 1;
 
-    const ib2 = this._config?.info_box_2;
+    const ib2 = c.info_box_2;
     if (ib2?.entity) {
-      // Same layout as the banner: as tall as image or wrapped text, plus padding.
-      const img = ib2.image_path ? this._px(ib2.image_size, 100) : 0;
-      const fs  = this._px(ib2.font_size, 16);
-      px += Math.max(img, Math.ceil(fs * 2.8)) + 32 + 1; // plus divider
+      // Same layout as the banner. +1 for the divider above it.
+      const img = ib2.image_path ? positiv(ib2.image_size, 100) : 0;
+      px += Math.max(img, Math.ceil(positiv(ib2.font_size, 16) * 2.8)) + 32 + 1;
     }
     return px;
   }
@@ -431,34 +568,36 @@ class LutarymRoomStatusCard extends HTMLElement {
 
     const cfg   = this._config;
     const rooms = cfg.rooms;
-    const byPos = Object.fromEntries(rooms.map(r => [r.position, r]));
 
-    const fsl = cfg.font_size_label  ?? 1.2;
-    const fsp = cfg.font_size_person ?? 0.88;
-    const fss = cfg.font_size_status ?? 1.05;
-    const fsc = cfg.font_size_closed ?? 1.2;
-    const cw  = cfg.corridor_width   ?? 68;
+    // One room per position. If two rooms share a position, the later one is
+    // rendered, and every lookup (tap, popup, status change) uses this same
+    // map, so the room you tap is always the room that gets changed. Rooms
+    // with an unknown position are never rendered, so they are left out.
+    this._byPos = Object.fromEntries(rooms
+      .filter(r => POSITIONS.includes(r.position))
+      .map(r => [r.position, r]));
+    const byPos = this._byPos;
+
+    // Numbers go straight into CSS, so invalid values fall back to defaults.
+    const fsl = positiv(cfg.font_size_label,  1.2);
+    const fsp = positiv(cfg.font_size_person, 0.88);
+    const fss = positiv(cfg.font_size_status, 1.05);
+    const fsc = positiv(cfg.font_size_closed, 1.2);
+    const cw  = positiv(cfg.corridor_width,   68);
 
     // A manually configured card height is applied as a real height, not only
     // reported to Lovelace. Without this the card keeps its content height and
     // the entered value only shifts the reserved space in coarse grid steps.
-    const rawCh = Number(cfg.card_height);
-    const ch = Number.isFinite(rawCh) && rawCh > 0 ? rawCh : null;
+    const ch = positiv(cfg.card_height, null);
     const hostHeight = ch ? `height:${ch}px;` : '';
     // Fixed height of the floor plan. It must not depend on whether banner or
     // text box are visible, otherwise the rooms would resize on every status
     // change that shows or hides them.
-    const rawRh = Number(cfg.room_height);
-    const rh = Number.isFinite(rawRh) && rawRh > 0 ? rawRh : 250;
+    const rh = positiv(cfg.room_height, 250);
 
     // Labels from config (with i18n defaults)
-    this._labels = {
-      frei:         cfg.status_labels?.frei         ?? t(hass, 'statusFree'),
-      'nicht besetzt': cfg.status_labels?.['nicht besetzt'] ?? t(hass, 'statusAppointment'),
-      belegt:       cfg.status_labels?.belegt       ?? t(hass, 'statusOccupied'),
-      reserviert:   cfg.status_labels?.reserviert   ?? t(hass, 'statusReserved'),
-      geschlossen:  cfg.status_labels?.geschlossen ?? t(hass, 'statusClosed'),
-    };
+    this._labels = Object.fromEntries(STATUSES.map(s =>
+      [s, cfg.status_labels?.[s] ?? t(hass, STATUS_LABEL_KEYS[s])]));
 
     const AREA_MAP = { 'top-left': 'tl', 'top-right': 'tr', 'bottom-left': 'bl', 'bottom-right': 'br' };
     const positionsHtml = Object.keys(AREA_MAP).map(pos => {
@@ -467,6 +606,13 @@ class LutarymRoomStatusCard extends HTMLElement {
       if (room && room.is_exit) return this._exitHtml(area);
       if (room) return this._roomHtml(room, area);
       return `<div style="grid-area:${area};background:#212121"></div>`;
+    }).join('');
+
+    // Popup buttons, one per status. Labels are user text, hence esc().
+    const popupButtons = STATUSES.map(s => {
+      const c = STATUS_COLORS[s];
+      return `<button class="popup-btn${s === 'geschlossen' ? ' wide' : ''}" id="btn-${slug(s)}"
+                style="--c:${c.bg};--ct:${c.text}">${esc(this._labels[s])}</button>`;
     }).join('');
 
     this.shadowRoot.innerHTML = `
@@ -594,35 +740,24 @@ class LutarymRoomStatusCard extends HTMLElement {
         <div class="wrap">
           <div class="grid">
             ${positionsHtml}
-            ${this._corridorHtml(rooms)}
+            ${this._corridorHtml()}
           </div>
           <div class="warning-banner" id="warning-banner" style="display: none;">
-            <img id="warning-image" class="warning-image" src="" alt="">
+            <img id="warning-image" class="warning-image" alt="">
             <div id="warning-text" class="warning-text"></div>
           </div>
           <div class="trenner" id="trenner-1" style="display: none;"></div>
           <div id="info-box" class="info-box" style="display: none;"></div>
           <div class="trenner" id="trenner-2" style="display: none;"></div>
           <div class="warning-banner" id="info-banner-2" style="display: none;">
-            <img id="info-image-2" class="warning-image" src="" alt="">
+            <img id="info-image-2" class="warning-image" alt="">
             <div id="info-text-2" class="warning-text"></div>
           </div>
         </div>
         <div class="popup-overlay" id="popup">
           <div class="popup-box">
             <div class="popup-title" id="popup-title"></div>
-            <div class="popup-buttons">
-              <button class="popup-btn" id="btn-frei"
-                style="--c:#00C853">${this._labels.frei}</button>
-              <button class="popup-btn" id="btn-nicht-besetzt"
-                style="--c:#FFD600;--ct:#1A1A1A">${this._labels['nicht besetzt']}</button>
-              <button class="popup-btn" id="btn-belegt"
-                style="--c:#F50000">${this._labels.belegt}</button>
-              <button class="popup-btn" id="btn-reserviert"
-                style="--c:#2196F3">${this._labels.reserviert}</button>
-              <button class="popup-btn wide" id="btn-geschlossen"
-                style="--c:#546E7A">${this._labels.geschlossen}</button>
-            </div>
+            <div class="popup-buttons">${popupButtons}</div>
           </div>
         </div>
       </ha-card>
@@ -631,58 +766,52 @@ class LutarymRoomStatusCard extends HTMLElement {
     this._attachListeners();
     this._update();
     this._observeSize();
-    this._notifyResize();
   }
 
-  // Ask Lovelace to re-measure this card. Home Assistant does not always call
-  // getCardSize on custom cards during the initial load, so without this the
-  // card can keep an outdated height until something else triggers a relayout.
-  _notifyResize() {
-    // Never let this break the build: if anything here throws, the card would
-    // stay empty. The relayout hint is a nice-to-have, the card is not.
-    try {
-      const feuern = () => {
-        try {
-          this.dispatchEvent(new Event('iron-resize', { bubbles: true, composed: true }));
-        } catch (e) { /* ignore */ }
-      };
-      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(feuern);
-      else setTimeout(feuern, 0);
-    } catch (e) { /* ignore */ }
-  }
-
+  // Scales the floor plan with the card width and keeps the measured height
+  // current. Old observers are disconnected first: _build runs on every config
+  // change (in the editor preview on every edit), and without this each run
+  // would leave two more observers behind.
   _observeSize() {
-    const refWidth = this._config.reference_width ?? 800;
+    this._unobserve();
+    if (typeof ResizeObserver !== 'function') return;
     const grid = this.shadowRoot.querySelector('.grid');
     if (!grid) return;
-    const ro = new ResizeObserver(entries => {
+    const refWidth = positiv(this._config.reference_width, 800);
+
+    const roHost = new ResizeObserver(entries => {
       for (const entry of entries) {
-        const w = entry.contentRect.width;
-        const scale = Math.max(0.3, w / refWidth);
-        grid.style.setProperty('--scale', scale);
+        grid.style.setProperty('--scale', Math.max(0.3, entry.contentRect.width / refWidth));
       }
       this._measureHeight();
     });
-    ro.observe(this);
+    roHost.observe(this);
+    this._observers.push(roHost);
 
-    // Also watch the content itself: banner and text box appear and disappear
+    // Also watch the content itself: banner and text boxes appear and disappear
     // with the room status, which changes the height without changing width.
     const wrap = this.shadowRoot.querySelector('.wrap');
     if (wrap) {
       const roWrap = new ResizeObserver(() => this._measureHeight());
       roWrap.observe(wrap);
+      this._observers.push(roWrap);
     }
   }
 
-  // Measures what the card actually occupies and reports it to Lovelace.
+  _unobserve() {
+    this._observers.forEach(ro => ro.disconnect());
+    this._observers = [];
+  }
+
+  // Measures what the card actually occupies. getCardSize and getGridOptions
+  // use this value the next time Home Assistant asks for the size.
   // The individual parts are summed instead of measuring the container: a
   // container can be stretched by the space Lovelace assigns, which would feed
   // that space straight back as the new height and never shrink again.
   _measureHeight() {
     try {
       // A manually configured height wins. Measuring would only fight it.
-      const manuell = Number(this._config?.card_height);
-      if (Number.isFinite(manuell) && manuell > 0) return;
+      if (positiv(this._config?.card_height, null)) return;
 
       const sr = this.shadowRoot;
       if (!sr) return;
@@ -697,11 +826,7 @@ class LutarymRoomStatusCard extends HTMLElement {
         hoehe(sr.getElementById('trenner-2')) +
         hoehe(sr.getElementById('info-banner-2'))
       );
-      if (!h) return;
-      // Only report on a real change, otherwise the relayout could loop.
-      if (this._measuredHeight != null && Math.abs(h - this._measuredHeight) < 2) return;
-      this._measuredHeight = h;
-      this._notifyResize();
+      if (h) this._measuredHeight = h;
     } catch (e) { /* ignore */ }
   }
 
@@ -709,15 +834,16 @@ class LutarymRoomStatusCard extends HTMLElement {
 
   _update() {
     if (!this._built) return;
-    for (const room of this._config.rooms) {
+    for (const room of this._rooms()) {
+      if (room.is_exit) continue;
       const el = this.shadowRoot.querySelector(`[data-room-position="${room.position}"]`);
       if (!el) continue;
       const s = this._roomStatus(room);
-      const { bg, dark } = STATUS_COLORS[s];
+      const { bg, dark, text } = STATUS_COLORS[s];
       const closed = s === 'geschlossen';
       const label = closed ? '' : (this._labels[s] ?? '');
       el.style.background = `linear-gradient(160deg,${bg},${dark})`;
-      el.style.color       = s === 'nicht besetzt' ? '#1A1A1A' : '#fff';
+      el.style.color       = text;
       el.querySelector('.room-top').style.visibility    = closed ? 'hidden' : 'visible';
       el.querySelector('.room-footer').style.visibility = closed ? 'hidden' : 'visible';
       el.querySelector('.room-status').textContent = label;
@@ -728,18 +854,17 @@ class LutarymRoomStatusCard extends HTMLElement {
     if (this._popupId) this._refreshPopupBtns();
 
     // Person icon: visible when at least 1 (non-exit) room is active
-    const anyActive  = this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) !== 'geschlossen');
+    const anyActive  = this._rooms().some(r => !r.is_exit && this._roomStatus(r) !== 'geschlossen');
     const personEl = this.shadowRoot.getElementById('corridor-person');
     if (personEl) personEl.style.display = anyActive ? 'block' : 'none';
 
     // Arrows: visible when the room's status has wayfinding enabled;
     // color follows that status's color.
-    const byPos = Object.fromEntries(this._config.rooms.map(r => [r.position, r]));
     const AREA_TO_POSITION = { bl: 'bottom-left', br: 'bottom-right', tr: 'top-right', tl: 'top-left' };
     Object.keys(AREA_TO_POSITION).forEach(area => {
       const arrow = this.shadowRoot.getElementById(`arrow-${area}`);
       if (!arrow) return;
-      const room = byPos[AREA_TO_POSITION[area]];
+      const room = this._byPos[AREA_TO_POSITION[area]];
       const status = room && !room.is_exit ? this._roomStatus(room) : null;
       const show = !!status && this._statusShowsWayfinding(status);
       arrow.style.display = show ? 'block' : 'none';
@@ -769,9 +894,7 @@ class LutarymRoomStatusCard extends HTMLElement {
     // Second block: same layout as the warning banner, image left, text right.
     // The text comes from an entity, so an empty state hides the whole block.
     const cfg2 = this._config.info_box_2 || {};
-    const zustand = cfg2.entity ? this._hass?.states[cfg2.entity]?.state : undefined;
-    const text2 = (zustand == null || zustand === 'unknown' || zustand === 'unavailable')
-      ? '' : String(zustand).trim();
+    const text2 = this._entityText(cfg2.entity);
 
     const zwei = this._renderBanner(
       sr.getElementById('info-banner-2'),
@@ -779,13 +902,22 @@ class LutarymRoomStatusCard extends HTMLElement {
       sr.getElementById('info-text-2'),
       { sichtbar: !!text2, text: text2, image_path: cfg2.image_path,
         image_size: cfg2.image_size, font_size: cfg2.font_size,
-        text_align: cfg2.text_align },
+        text_align: cfg2.text_align, schrift: cfg2 },
     );
     this._setzeTrenner(sr.getElementById('trenner-2'), (bannerSichtbar || eins) && zwei);
   }
 
+  // State of an entity as display text; empty when the entity is missing,
+  // unknown, unavailable or holds only whitespace.
+  _entityText(entityId) {
+    const state = entityId ? this._hass?.states[entityId]?.state : undefined;
+    return (state == null || state === 'unknown' || state === 'unavailable')
+      ? '' : String(state).trim();
+  }
+
   // Shared rendering for an image-left / text-right block. Returns whether the
-  // block ended up visible.
+  // block ended up visible. `o.schrift` carries the font options of a text
+  // box; the warning banner passes none and keeps its CSS defaults.
   _renderBanner(block, imgEl, txtEl, o) {
     if (!block || !imgEl || !txtEl) return false;
 
@@ -794,10 +926,11 @@ class LutarymRoomStatusCard extends HTMLElement {
       return false;
     }
 
-    const size  = this._px(o.image_size, 100);
-    const fs    = this._px(o.font_size, 16);
-    const ALIGN = ['left', 'center', 'right', 'justify'];
-    const align = ALIGN.includes(o.text_align) ? o.text_align : 'left';
+    // Guard against 0, negative values, text and unknown alignments, which
+    // would otherwise make image or text disappear or produce invalid CSS.
+    const size  = positiv(o.image_size, 100);
+    const fs    = positiv(o.font_size, 16);
+    const align = ALIGN_VALUES.includes(o.text_align) ? o.text_align : 'left';
 
     if (o.image_path) {
       // Hide the image if it cannot be loaded, so it does not occupy space and
@@ -815,22 +948,19 @@ class LutarymRoomStatusCard extends HTMLElement {
       imgEl.style.display = 'none';
     }
 
-    txtEl.textContent    = o.text;
-    txtEl.style.fontSize = `${fs}px`;
+    txtEl.textContent     = o.text;
+    txtEl.style.fontSize  = `${fs}px`;
     txtEl.style.textAlign = align;
-    block.style.display  = 'flex';
+    if (o.schrift) this._applyFont(txtEl, o.schrift);
+    block.style.display   = 'flex';
     return true;
   }
 
-  // Fills one text box, returns whether it ended up visible.
-  _applyInfoBox(box, cfg = {}) {
+  // Fills text box 1, returns whether it ended up visible.
+  _applyInfoBox(box, cfg) {
     if (!box) return false;
 
-    const entityId = cfg?.entity;
-    const state = entityId ? this._hass?.states[entityId]?.state : undefined;
-    const text = (state == null || state === 'unknown' || state === 'unavailable')
-      ? '' : String(state).trim();
-
+    const text = this._entityText(cfg?.entity);
     if (!text) {
       box.style.display = 'none';
       box.textContent = '';
@@ -838,75 +968,47 @@ class LutarymRoomStatusCard extends HTMLElement {
     }
 
     box.textContent    = text;
-    box.style.fontSize = `${this._px(cfg.font_size, 18)}px`;
-    box.style.height   = `${this._px(cfg.height, 80)}px`;
+    box.style.fontSize = `${positiv(cfg.font_size, 18)}px`;
+    box.style.height   = `${positiv(cfg.height, 80)}px`;
+    this._applyFont(box, cfg);
     box.style.display  = 'flex';
     return true;
+  }
+
+  // Font family, weight, italic and underline of a text box. Unset or unknown
+  // values clear the inline style, so the element keeps its CSS default:
+  // normal weight for text box 1, semibold for text box 2.
+  _applyFont(el, f) {
+    el.style.fontFamily     = own(FONT_STACKS, f.font_family) || '';
+    const weight            = own(FONT_WEIGHTS, f.font_weight);
+    el.style.fontWeight     = weight ? String(weight) : '';
+    el.style.fontStyle      = f.italic === true ? 'italic' : '';
+    el.style.textDecoration = f.underline === true ? 'underline' : '';
   }
 
   _setzeTrenner(el, sichtbar) {
     if (el) el.style.display = sichtbar ? 'block' : 'none';
   }
 
-  // Positive number from the configuration, otherwise the fallback.
-  _px(wert, fallback) {
-    const n = Number(wert);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-  }
-
   _updateWarningBanner() {
-    const cfg = this._config.warning_banner;
-    const banner = this.shadowRoot.getElementById('warning-banner');
-    if (!banner || !cfg?.enabled) {
-      if (banner) banner.style.display = 'none';
-      return;
-    }
-
-    const imageSrc = cfg.image_path || '/local/Stop.png';
-    const text = cfg.text || 'Bitte erst eintreten wenn der Raum frei ist';
+    const sr  = this.shadowRoot;
+    const cfg = this._config.warning_banner || {};
     const showWhen = cfg.show_when || 'belegt';
 
     // "immer" shows the banner permanently; any other value shows it only
     // while at least one (non-exit) room carries that status.
-    const shouldShow = showWhen === 'immer'
-      ? true
-      : this._config.rooms.some(r => !r.is_exit && this._roomStatus(r) === showWhen);
+    const sichtbar = !!cfg.enabled && (showWhen === 'immer' ||
+      this._rooms().some(r => !r.is_exit && this._roomStatus(r) === showWhen));
 
-    const imgEl = this.shadowRoot.getElementById('warning-image');
-    const txtEl = this.shadowRoot.getElementById('warning-text');
-
-    // Image size and text size in px, both configurable. Guard against 0,
-    // negative values and anything non-numeric, which would otherwise make
-    // image or text disappear.
-    const rawSize = Number(cfg.image_size);
-    const size = Number.isFinite(rawSize) && rawSize > 0 ? rawSize : 100;
-    const rawFs = Number(cfg.font_size);
-    const fs = Number.isFinite(rawFs) && rawFs > 0 ? rawFs : 16;
-
-    // Text alignment. Anything unknown falls back to left, so a typo in YAML
-    // cannot produce an invalid CSS value.
-    const ALIGN = ['left', 'center', 'right', 'justify'];
-    const align = ALIGN.includes(cfg.text_align) ? cfg.text_align : 'left';
-
-    if (shouldShow) {
-      // If the image cannot be loaded (wrong path, file missing), hide the
-      // image element so it does not occupy space and the text stays visible.
-      imgEl.onerror = () => { imgEl.style.display = 'none'; };
-      imgEl.onload  = () => { imgEl.style.display = ''; };
-      imgEl.alt = text;
-      imgEl.style.width  = `${size}px`;
-      imgEl.style.height = `${size}px`;
-      if (imgEl.getAttribute('src') !== imageSrc) {
-        imgEl.style.display = '';
-        imgEl.src = imageSrc;
-      }
-      txtEl.textContent = text;
-      txtEl.style.fontSize = `${fs}px`;
-      txtEl.style.textAlign = align;
-      banner.style.display = 'flex';
-    } else {
-      banner.style.display = 'none';
-    }
+    this._renderBanner(
+      sr.getElementById('warning-banner'),
+      sr.getElementById('warning-image'),
+      sr.getElementById('warning-text'),
+      { sichtbar, text: cfg.text || DEFAULT_WARNING_TEXT,
+        image_path: cfg.image_path || '/local/Stop.png',
+        image_size: cfg.image_size, font_size: cfg.font_size,
+        text_align: cfg.text_align },
+    );
   }
 
   // Whether the wayfinding animation (arrows) should show for a given
@@ -926,29 +1028,19 @@ class LutarymRoomStatusCard extends HTMLElement {
       el.addEventListener('click', () => this._openPopup(el.dataset.roomPosition));
     });
 
-    // Popup buttons
-    ['frei','nicht besetzt','belegt','reserviert'].forEach(action => {
+    // Popup buttons. Tapping the room's current status again switches it
+    // back to "geschlossen"; the "geschlossen" button always closes.
+    STATUSES.forEach(action => {
       const btn = this.shadowRoot.getElementById(`btn-${slug(action)}`);
       btn.addEventListener('click', e => {
         e.stopPropagation();
-        if (!this._hass || !this._popupId) return;
-        const room = this._config.rooms.find(r => r.position === this._popupId);
-        if (!room) return;
-        const turnOn = this._roomStatus(room) !== action;
+        const room = this._byPos[this._popupId];
+        if (!this._hass || !room) return;
+        const neu = action === 'geschlossen' || this._roomStatus(room) !== action
+          ? action : 'geschlossen';
         this._closePopup();
-        this._setRoomStatus(room, turnOn ? action : 'geschlossen');
+        this._setRoomStatus(room, neu);
       });
-    });
-
-    // "Geschlossen" button: always sets the room to geschlossen directly (no toggle)
-    const closedBtn = this.shadowRoot.getElementById('btn-geschlossen');
-    closedBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      if (!this._hass || !this._popupId) return;
-      const room = this._config.rooms.find(r => r.position === this._popupId);
-      if (!room) return;
-      this._closePopup();
-      this._setRoomStatus(room, 'geschlossen');
     });
 
     // Close overlay on click outside the popup box
@@ -961,7 +1053,7 @@ class LutarymRoomStatusCard extends HTMLElement {
   // ── Popup ────────────────────────────────────────────────────────────────
 
   _openPopup(position) {
-    const room = this._config.rooms.find(r => r.position === position);
+    const room = this._byPos[position];
     if (!room) return;
     this._popupId = position;
     this.shadowRoot.getElementById('popup-title').textContent =
@@ -971,9 +1063,8 @@ class LutarymRoomStatusCard extends HTMLElement {
   }
 
   _refreshPopupBtns() {
-    const room = this._config.rooms.find(r => r.position === this._popupId);
-    const s = this._roomStatus(room);
-    ['frei','nicht besetzt','belegt','reserviert','geschlossen'].forEach(a => {
+    const s = this._roomStatus(this._byPos[this._popupId]);
+    STATUSES.forEach(a => {
       this.shadowRoot.getElementById(`btn-${slug(a)}`)
         .classList.toggle('active', a === s);
     });
@@ -986,25 +1077,29 @@ class LutarymRoomStatusCard extends HTMLElement {
 
   // ── Entity lookups ─────────────────────────────────────────────────────
 
+  // Any state that is not a known status counts as "geschlossen".
   _roomStatus(room) {
     if (!room || !room.entity || !this._hass) return 'geschlossen';
     const state = this._hass.states[room.entity]?.state;
-    const VALID = ['belegt', 'nicht besetzt', 'frei', 'reserviert'];
-    return VALID.includes(state) ? state : 'geschlossen';
+    return STATUSES.includes(state) ? state : 'geschlossen';
   }
 
-  // Writes the new status into the room's single status entity — supports
+  // Writes the new status into the room's single status entity. Supports
   // input_select (select_option) and input_text (set_value); any other
   // domain falls back to input_text.set_value as a best effort.
   _setRoomStatus(room, value) {
     if (!room?.entity || !this._hass) return;
     const domain = room.entity.split('.')[0];
 
-    if (domain === 'input_select') {
-      this._hass.callService('input_select', 'select_option', { entity_id: room.entity, option: value });
-    } else {
-      this._hass.callService('input_text', 'set_value', { entity_id: room.entity, value });
-    }
+    const aufruf = domain === 'input_select'
+      ? this._hass.callService('input_select', 'select_option', { entity_id: room.entity, option: value })
+      : this._hass.callService('input_text', 'set_value', { entity_id: room.entity, value });
+
+    // A failed call, typically a dropdown helper that lacks this option,
+    // would otherwise end up as an uncaught error in the browser console.
+    Promise.resolve(aufruf).catch(err =>
+      console.warn(`[lutarym-room-status-card] ${room.entity} konnte nicht auf "${value}" gesetzt werden:`,
+                   err?.message ?? err));
   }
 
   // ── HTML building blocks ──────────────────────────────────────────────────
@@ -1031,10 +1126,10 @@ class LutarymRoomStatusCard extends HTMLElement {
       </div>`;
   }
 
-  _corridorHtml(rooms) {
-    const byPos = Object.fromEntries(rooms.map(r => [r.position, r]));
-    const bottom = this._config.corridor_person_bottom ?? 2;
-    const personSize = this._config.person_icon_size ?? 34;
+  _corridorHtml() {
+    const b = Number(this._config.corridor_person_bottom);
+    const bottom = Number.isFinite(b) && b >= 0 ? b : 2;
+    const personSize = positiv(this._config.person_icon_size, 34);
     return `
       <div class="corridor" style="position:relative">
         <svg id="corridor-person" viewBox="0 0 20 20"
@@ -1090,8 +1185,6 @@ class LutarymRoomStatusCard extends HTMLElement {
   }
 }
 
-customElements.define('lutarym-room-status-card', LutarymRoomStatusCard);
-
 // ── Visual config editor ────────────────────────────────────────────────
 
 class LutarymRoomStatusCardEditor extends HTMLElement {
@@ -1118,21 +1211,27 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     }));
   }
 
+  // All editor changes build a new config object instead of changing the
+  // current one: Home Assistant deep-freezes every config this editor sends
+  // out, and writing into a frozen object would throw.
+
   _onChange(field, value, isNumber) {
-    // Nested fields (e.g. "warning_banner.image_path") are written into a
-    // fresh copy of the parent object: the config handed over by Lovelace may
-    // be frozen, so mutating it in place would throw.
+    const leer = value === '' || value == null;
+    const wert = isNumber && !leer ? Number(value) : value;
+    const next = { ...this._config };
     if (field.includes('.')) {
+      // Nested field, e.g. "warning_banner.image_path". An object that ends up
+      // empty is removed, so no "info_box: {}" is left behind in the YAML.
       const [parent, child] = field.split('.');
-      const branch = { ...(this._config[parent] || {}) };
-      if (value === '' || value == null) delete branch[child];
-      else branch[child] = isNumber ? Number(value) : value;
-      this._config = { ...this._config, [parent]: branch };
-    } else if (value === '' || value == null) {
-      delete this._config[field];
+      const branch = { ...(next[parent] || {}) };
+      if (leer) delete branch[child]; else branch[child] = wert;
+      if (Object.keys(branch).length) next[parent] = branch; else delete next[parent];
+    } else if (leer) {
+      delete next[field];
     } else {
-      this._config[field] = isNumber ? Number(value) : value;
+      next[field] = wert;
     }
+    this._config = next;
     this._fireChanged();
   }
 
@@ -1140,56 +1239,45 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     const labels = { ...(this._config.status_labels || {}) };
     if (value === '' || value == null) delete labels[key];
     else labels[key] = value;
-    if (Object.keys(labels).length) this._config.status_labels = labels;
-    else delete this._config.status_labels;
+    const next = { ...this._config };
+    if (Object.keys(labels).length) next.status_labels = labels;
+    else delete next.status_labels;
+    this._config = next;
     this._fireChanged();
   }
 
   _onWayfindingToggle(key, checked) {
-    const map = { ...(this._config.status_show_wayfinding || {}) };
-    map[key] = checked;
-    this._config.status_show_wayfinding = map;
+    this._config = {
+      ...this._config,
+      status_show_wayfinding: { ...(this._config.status_show_wayfinding || {}), [key]: checked },
+    };
     this._fireChanged();
   }
 
   _onRoomChange(index, field, value) {
-    this._config.rooms[index][field] = value;
+    this._config = {
+      ...this._config,
+      rooms: this._config.rooms.map((r, i) => (i === index ? { ...r, [field]: value } : r)),
+    };
     this._fireChanged();
   }
 
   _addRoom() {
     if (this._config.rooms.length >= 4) return;
-    const usedPositions = new Set(this._config.rooms.map(r => r.position));
-    const allPositions = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
-    const nextPosition = allPositions.find(p => !usedPositions.has(p)) || 'top-left';
-    this._config.rooms.push({ id: '', label: '', person: '', position: nextPosition });
+    const used = new Set(this._config.rooms.map(r => r.position));
+    const position = POSITIONS.find(p => !used.has(p)) || 'top-left';
+    this._config = {
+      ...this._config,
+      rooms: [...this._config.rooms, { label: '', person: '', position }],
+    };
     this._render();
     this._fireChanged();
   }
 
   _removeRoom(index) {
-    this._config.rooms.splice(index, 1);
+    this._config = { ...this._config, rooms: this._config.rooms.filter((_, i) => i !== index) };
     this._render();
     this._fireChanged();
-  }
-
-  _textRow(label, field, value, placeholder, hintText) {
-    const wrap = document.createElement('div');
-    wrap.className = 'row';
-    wrap.innerHTML = `<label>${label}</label>`;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = value ?? '';
-    if (placeholder) input.placeholder = placeholder;
-    input.addEventListener('change', ev => this._onChange(field, ev.target.value));
-    wrap.appendChild(input);
-    if (hintText) {
-      const hint = document.createElement('div');
-      hint.className = 'hint';
-      hint.textContent = hintText;
-      wrap.appendChild(hint);
-    }
-    return wrap;
   }
 
   _numberRow(label, field, value, placeholder, step) {
@@ -1236,13 +1324,9 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     return wrap;
   }
 
-  // Entity picker for a single room's status entity (occupied/appointment/
-  // free), filtered to the input_boolean domain since that's what the
-  // card expects. Writes into the specific room object via _onRoomChange.
-  // Entity picker for a room's single status entity — a text or select
-  // helper whose state directly holds the status ("occupied" /
-  // "appointment" / "free" / "closed"). Writes into the specific room
-  // object via _onRoomChange.
+  // Entity picker for a room's status entity: a text or select helper whose
+  // state holds the status directly ("frei", "belegt", ...). Writes into the
+  // specific room object via _onRoomChange.
   _roomEntityRow(label, roomIndex, field, value) {
     const wrap = document.createElement('div');
     wrap.className = 'row';
@@ -1259,18 +1343,51 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     return wrap;
   }
 
-  _checkboxRow(label, field, value, defaultTrue) {
-    const wrap = document.createElement('div');
+  // Checkbox with its text inside the same <label>, so clicking the text
+  // toggles the box as well.
+  _flagRow(label, checked, onChange) {
+    const wrap = document.createElement('label');
     wrap.className = 'row checkbox-row';
-    const l = document.createElement('label');
-    l.textContent = label;
     const input = document.createElement('input');
     input.type = 'checkbox';
-    input.checked = value != null ? !!value : !!defaultTrue;
-    input.addEventListener('change', ev => this._onChange(field, ev.target.checked));
+    input.checked = !!checked;
+    input.addEventListener('change', ev => onChange(ev.target.checked));
     wrap.appendChild(input);
-    wrap.appendChild(l);
+    wrap.appendChild(document.createTextNode(label));
     return wrap;
+  }
+
+  // Font controls of a text box: font, weight, italic, underline. Choosing
+  // the default removes the key, so the YAML only holds real changes.
+  _fontControls(prefix, box, defaultWeight) {
+    const hass = this._hass;
+    const family = own(FONT_STACKS, box.font_family) !== undefined ? box.font_family : 'theme';
+    const weight = own(FONT_WEIGHTS, box.font_weight) !== undefined ? box.font_weight : defaultWeight;
+
+    const familyRow = this._selectRow(t(hass, 'editorFontFamily'), null, family,
+      FONTS.map(f => ({ value: f.key, label: f.i18n ? t(hass, f.i18n) : f.label })),
+      v => this._onChange(`${prefix}.font_family`, v === 'theme' ? '' : v));
+
+    const weightRow = this._selectRow(t(hass, 'editorFontWeight'), null, weight, [
+      { value: 'normal',   label: t(hass, 'weightNormal') },
+      { value: 'semibold', label: t(hass, 'weightSemibold') },
+      { value: 'bold',     label: t(hass, 'weightBold') },
+    ], v => this._onChange(`${prefix}.font_weight`, v === defaultWeight ? '' : v));
+
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = t(hass, 'editorFontHint');
+
+    return [
+      this._sideBySide(familyRow, weightRow),
+      this._sideBySide(
+        this._flagRow(t(hass, 'editorItalic'), box.italic === true,
+          c => this._onChange(`${prefix}.italic`, c ? true : '')),
+        this._flagRow(t(hass, 'editorUnderline'), box.underline === true,
+          c => this._onChange(`${prefix}.underline`, c ? true : '')),
+      ),
+      hint,
+    ];
   }
 
   _statusLabelRow(label, key, value, placeholder) {
@@ -1324,12 +1441,15 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
           border-radius: 6px; background: var(--card-background-color, #fff);
           color: var(--primary-text-color); font-size: 14px; box-sizing: border-box;
         }
-        .checkbox-row { flex-direction: row; align-items: center; gap: 8px; }
+        .checkbox-row {
+          flex-direction: row; align-items: center; gap: 8px;
+          font-size: 13px; color: var(--primary-text-color); cursor: pointer;
+        }
+        .checkbox-row input[type="checkbox"] { margin: 0; cursor: pointer; }
         .status-label-controls { display: flex; align-items: center; gap: 10px; }
         .status-label-controls input[type="text"] { flex: 1; min-width: 0; }
         .arrow-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; cursor: pointer; }
         .arrow-toggle input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; margin: 0; }
-        .checkbox-row label { font-weight: 400; }
         .row-pair { display: flex; gap: 16px; }
         .row-pair > .row { flex: 1; min-width: 0; }
         .section-label {
@@ -1463,20 +1583,10 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
         v => this._onRoomChange(i, 'position', v),
       ));
 
-      const exitCheckboxRow = document.createElement('div');
-      exitCheckboxRow.className = 'row checkbox-row';
-      const exitLabel = document.createElement('label');
-      exitLabel.textContent = t(hass, 'editorRoomIsExit');
-      const exitCheckbox = document.createElement('input');
-      exitCheckbox.type = 'checkbox';
-      exitCheckbox.checked = !!room.is_exit;
-      exitCheckbox.addEventListener('change', ev => {
-        this._onRoomChange(i, 'is_exit', ev.target.checked);
+      roomCard.appendChild(this._flagRow(t(hass, 'editorRoomIsExit'), !!room.is_exit, checked => {
+        this._onRoomChange(i, 'is_exit', checked);
         this._render(); // structural change: show/hide the fields below
-      });
-      exitCheckboxRow.appendChild(exitCheckbox);
-      exitCheckboxRow.appendChild(exitLabel);
-      roomCard.appendChild(exitCheckboxRow);
+      }));
 
       // Label/person/entity are irrelevant for the Emergency Exit quadrant
       if (!room.is_exit) {
@@ -1524,19 +1634,14 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     form.appendChild(warningLabel);
 
     const wb = cfg.warning_banner || {};
-    const wbEnabled = document.createElement('div');
-    wbEnabled.className = 'row checkbox-row';
-    const wbEnabledCb = document.createElement('input');
-    wbEnabledCb.type = 'checkbox';
-    wbEnabledCb.checked = wb.enabled ?? false;
-    wbEnabledCb.addEventListener('change', ev => {
-      this._config = { ...this._config, warning_banner: { ...wb, enabled: ev.target.checked } };
+    form.appendChild(this._flagRow(t(hass, 'editorBannerEnabled'), !!wb.enabled, checked => {
+      this._config = {
+        ...this._config,
+        warning_banner: { ...(this._config.warning_banner || {}), enabled: checked },
+      };
       this._fireChanged();
       this._render(); // structural change: show/hide the fields below
-    });
-    wbEnabled.appendChild(wbEnabledCb);
-    wbEnabled.appendChild(document.createTextNode(t(hass, 'editorBannerEnabled')));
-    form.appendChild(wbEnabled);
+    }));
 
     if (wb.enabled) {
       form.appendChild(this._stringRow(t(hass, 'editorImagePath'), 'warning_banner.image_path', wb.image_path || '/local/Stop.png', '/local/Stop.png'));
@@ -1544,7 +1649,7 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
         this._numberRow(t(hass, 'editorImageSize'), 'warning_banner.image_size', wb.image_size ?? 100, 100),
         this._numberRow(t(hass, 'editorWarningFontSize'), 'warning_banner.font_size', wb.font_size ?? 16, 16),
       ));
-      form.appendChild(this._stringRow(t(hass, 'editorWarningText'), 'warning_banner.text', wb.text || 'Bitte erst eintreten wenn der Raum frei ist', 'Bitte erst eintreten wenn der Raum frei ist'));
+      form.appendChild(this._stringRow(t(hass, 'editorWarningText'), 'warning_banner.text', wb.text || DEFAULT_WARNING_TEXT, DEFAULT_WARNING_TEXT));
       form.appendChild(this._selectRow(
         t(hass, 'editorTextAlign'), 'warning_banner.text_align', wb.text_align || 'left',
         [
@@ -1579,6 +1684,7 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
       this._numberRow(t(hass, 'editorInfoBoxFontSize'), 'info_box.font_size', ib.font_size ?? 18, 18),
       this._numberRow(t(hass, 'editorInfoBoxHeight'), 'info_box.height', ib.height ?? 80, 80),
     ));
+    this._fontControls('info_box', ib, 'normal').forEach(el => form.appendChild(el));
 
     const infoHint = document.createElement('div');
     infoHint.className = 'hint';
@@ -1593,11 +1699,12 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
     form.appendChild(infoLabel2);
 
     form.appendChild(this._infoBoxEntityRow(t(hass, 'editorInfoBoxEntity'), 'info_box_2.entity', ib2.entity));
-    form.appendChild(this._stringRow(t(hass, 'editorImagePath'), 'info_box_2.image_path', ib2.image_path, t(hass, 'automatic')));
+    form.appendChild(this._stringRow(t(hass, 'editorImagePath'), 'info_box_2.image_path', ib2.image_path, t(hass, 'noImage')));
     form.appendChild(this._sideBySide(
       this._numberRow(t(hass, 'editorImageSize'), 'info_box_2.image_size', ib2.image_size ?? 100, 100),
       this._numberRow(t(hass, 'editorInfoBoxFontSize'), 'info_box_2.font_size', ib2.font_size ?? 16, 16),
     ));
+    this._fontControls('info_box_2', ib2, 'semibold').forEach(el => form.appendChild(el));
     form.appendChild(this._selectRow(
       t(hass, 'editorTextAlign'), 'info_box_2.text_align', ib2.text_align || 'left',
       [
@@ -1632,17 +1739,28 @@ class LutarymRoomStatusCardEditor extends HTMLElement {
   }
 }
 
-customElements.define('lutarym-room-status-card-editor', LutarymRoomStatusCardEditor);
+// ── Registration ────────────────────────────────────────────────────────
+// Guarded, because the same file can end up loaded twice (for example once
+// via HACS and once as a manual resource). An unguarded second define()
+// throws "already defined" and stops the script.
+
+if (!customElements.get('lutarym-room-status-card')) {
+  customElements.define('lutarym-room-status-card', LutarymRoomStatusCard);
+  console.info(
+    `%c ROOM-STATUS-CARD %c v${VERSION} `,
+    'background:#1565C0;color:#fff;padding:2px 8px;border-radius:3px 0 0 3px;font-weight:bold',
+    'background:#00C853;color:#fff;padding:2px 8px;border-radius:0 3px 3px 0;font-weight:bold'
+  );
+}
+if (!customElements.get('lutarym-room-status-card-editor')) {
+  customElements.define('lutarym-room-status-card-editor', LutarymRoomStatusCardEditor);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'lutarym-room-status-card',
-  name: 'Room Status by Lutarym',
-  description: 'Office floor-plan card showing room status (occupied/appointment/free/reserved/closed) with animated wayfinding arrows and a tap-to-change popup.',
-});
-
-console.info(
-  `%c ROOM-STATUS-CARD %c v${VERSION} `,
-  'background:#1565C0;color:#fff;padding:2px 8px;border-radius:3px 0 0 3px;font-weight:bold',
-  'background:#00C853;color:#fff;padding:2px 8px;border-radius:0 3px 3px 0;font-weight:bold'
-);
+if (!window.customCards.some(c => c.type === 'lutarym-room-status-card')) {
+  window.customCards.push({
+    type: 'lutarym-room-status-card',
+    name: t(null, 'cardName'),
+    description: t(null, 'cardDescription'),
+  });
+}

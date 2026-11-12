@@ -7,7 +7,7 @@ Folge diesen Schritten um die Card schnell zum Laufen zu bringen:
 ### Option A: HACS (empfohlen)
 ```
 HACS → Frontend → ⋮ → Custom repositories
-URL: https://github.com/dein-username/lutarym-room-status-card-deutsch
+URL: https://github.com/Lutarym/ha-lutarym-room-entrace
 Kategorie: Dashboard
 → Installieren
 ```
@@ -80,7 +80,7 @@ Im Editor kannst du ändern:
 - Raumnamen
 - Animationstyp (1-10)
 - Schriftgrößen
-- Farben per Status
+- Schriftart und Stil der Textfelder
 - Text und Bild des Warnings
 
 ## 🐛 Fehlersuche

@@ -13,14 +13,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/dein-username/lutarym-room-status-card-deutsch"
+    "url": "https://github.com/Lutarym/ha-lutarym-room-entrace"
   },
   "author": "Lutarym",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/dein-username/lutarym-room-status-card-deutsch/issues"
+    "url": "https://github.com/Lutarym/ha-lutarym-room-entrace/issues"
   },
-  "homepage": "https://github.com/dein-username/lutarym-room-status-card-deutsch",
+  "homepage": "https://github.com/Lutarym/ha-lutarym-room-entrace",
   "engines": {
     "node": ">=14.0.0"
   }

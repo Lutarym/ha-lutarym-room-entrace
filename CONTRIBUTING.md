@@ -4,9 +4,9 @@ Danke dafür, dass du zu diesem Projekt beitragen möchtest!
 
 ## Wie kann ich helfen?
 
-- **Fehler melden** — Issues für Bugs öffnen
-- **Verbesserungen vorschlagen** — Feature Requests als Issues
-- **Code beitragen** — Pull Requests mit Fixes/Features
+- **Fehler melden**: Issues für Bugs öffnen
+- **Verbesserungen vorschlagen**: Feature Requests als Issues
+- **Code beitragen**: Pull Requests mit Fixes/Features
 
 ## Pull Request Prozess
 
