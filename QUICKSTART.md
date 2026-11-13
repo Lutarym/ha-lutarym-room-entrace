@@ -72,7 +72,7 @@ warning_banner:
 - Klicke auf den Raum → Popup öffnet sich
 - Wähle einen Status aus
 - Schaue, wie sich die Farben ändern
-- Bei "belegt" sollte das Warning Banner sichtbar sein
+- Sind alle Räume belegt, sollte das Warning Banner sichtbar sein (geschlossene Räume zählen nicht mit)
 
 ## 🎨 Personalisieren
 
@@ -92,7 +92,11 @@ Im Editor kannst du ändern:
 
 **Helper-Wert wird nicht übernommen?**
 - Sicherstellen dass die Entity existiert
-- Wert manuell setzen und prüfen
+- Home Assistant zeigt eine Meldung mit dem Grund
+- Ein Dropdown-Helfer braucht alle fünf Status als Optionen
+
+**Raum wird als geschlossen angezeigt?**
+- Konsole prüfen (F12): Die Karte nennt Entität und unbekannten Wert
 
 **Stop-Bild wird nicht angezeigt?**
 - Datei `Stop.png` liegt in `config/www/`

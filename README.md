@@ -2,7 +2,7 @@
 
 Eine **Lovelace Custom Card für Home Assistant**: eine Büro-Grundriss-Karte, die bis zu 4 Räume um einen zentralen Flur herum zeigt. Jeder Raum ist farbig nach Status gekennzeichnet (belegt / nicht besetzt / frei / reserviert / geschlossen), mit einem animierten Pfeil, der zum nächsten freien Raum zeigt, einer Personenfigur im Flur wenn irgendein Raum aktiv ist, und einem Popup zum Status-Wechsel.
 
-**Neu:** Warning Banner zur Anzeige von Warnsignalen (z.B. STOP-Schild) wenn ein Raum belegt ist!
+**Neu:** Warning Banner zur Anzeige von Warnsignalen (z.B. STOP-Schild), wenn alle Räume belegt sind!
 
 ## Features
 
@@ -87,6 +87,11 @@ warning_banner:
 | `person` | string | `Max Müller` | Optional: Name der Person (angezeigt auf dem Raumplan) |
 | `is_exit` | boolean | `true` | Optional: Markiert Exit/Notausgang |
 
+Jede Position darf nur einmal vorkommen. Wählst du im Editor eine Position, die
+schon ein anderer Raum hat, tauschen die beiden Räume ihre Plätze. Ein Raum mit
+doppelter oder ungültiger Position wird nicht angezeigt; der Editor weist darauf
+hin.
+
 ### Warning Banner Konfiguration
 
 | Parameter | Typ | Standard | Beschreibung |
@@ -97,7 +102,7 @@ warning_banner:
 | `font_size` | number | `16` | Schriftgröße des Warntextes in px |
 | `text_align` | string | `left` | Ausrichtung: `left`, `center`, `right`, `justify` |
 | `text` | string | `Bitte erst eintreten...` | Warntext |
-| `show_when` | string | `belegt` | `immer` für Daueranzeige, sonst der Status, bei dem eingeblendet wird |
+| `show_when` | string | `belegt` | `immer` für Daueranzeige, sonst der Status, den alle Räume haben müssen. Geschlossene Räume werden übersprungen |
 
 ### Höhe des Raumplans
 
@@ -123,6 +128,9 @@ card_height: 520
 Im Editor heißt das Feld "Kartenhöhe (px)". Bleibt es leer, rechnet die Karte
 wie bisher selbst. Steht ein Wert darin, hat dieser Vorrang, und die Karte
 misst sich nicht mehr selbst.
+
+Wurde die Karte im Abschnitte-Layout per Ziehen in der Größe geändert (steht
+dann als `grid_options` in der YAML), hat diese Größe Vorrang.
 
 ### Textfelder
 
@@ -249,6 +257,34 @@ input_text:
 - **reserviert**: Raum ist reserviert
 - **geschlossen**: Raum ist geschlossen (wird ausgegraut)
 
+Groß- und Kleinschreibung sowie überzählige Leerzeichen spielen keine Rolle,
+`Belegt` gilt also wie `belegt`. Einen anderen Wert zeigt die Karte als
+geschlossen an und nennt Entität und Wert in der Browserkonsole (F12).
+
+## Bedienung
+
+- Tippen auf einen Raum öffnet das Popup zum Statuswechsel.
+- Tippen auf den Status, den der Raum schon hat, schließt nur das Popup.
+- Ein Raum ohne Entität öffnet kein Popup.
+- Schlägt ein Statuswechsel fehl, zum Beispiel weil einem Dropdown-Helfer die
+  Option fehlt, zeigt Home Assistant eine Meldung mit dem Grund.
+
+## Umstieg von der englischen Originalkarte
+
+Die englischen Werte der Originalkarte werden nicht mehr gelesen. In
+`status_labels`, `status_show_wayfinding` und `warning_banner.show_when` bitte
+umbenennen:
+
+| Original | Deutsch |
+|----------|---------|
+| `free` | `frei` |
+| `occupied` | `belegt` |
+| `appointment` | `nicht besetzt` |
+| `reserved` | `reserviert` |
+| `closed` | `geschlossen` |
+
+Findet die Karte noch alte Werte, nennt sie diese in der Browserkonsole (F12).
+
 ## Pfeil-Animationen
 
 1. **Draw**: Wird gezeichnet
@@ -273,14 +309,26 @@ Die Card kann vollständig im Lovelace-Editor visuell konfiguriert werden:
 
 ## Warning Banner Beispiele
 
-### Nur warnen wenn belegt:
+### Nur warnen, wenn alle Räume belegt sind:
 ```yaml
 warning_banner:
   enabled: true
   image_path: /local/Stop.png
-  text: Bitte klopfen, Raum ist belegt!
+  text: Bitte warten, alle Räume sind belegt
   show_when: belegt
 ```
+Das Banner erscheint erst, wenn alle Räume den gewählten Status haben.
+Geschlossene Räume werden dabei übersprungen:
+
+| Raum 1 | Raum 2 | Raum 3 | Banner |
+|--------|--------|--------|--------|
+| belegt | frei | geschlossen | nein |
+| belegt | belegt | frei | nein |
+| belegt | belegt | geschlossen | ja |
+| belegt | belegt | belegt | ja |
+| geschlossen | geschlossen | geschlossen | nein |
+
+Mit `show_when: geschlossen` erscheint das Banner, wenn alle Räume geschlossen sind.
 
 ### Stopschild dauerhaft anzeigen:
 ```yaml
@@ -295,12 +343,12 @@ warning_banner:
 ```
 Mit `immer` bleibt das Schild sichtbar, unabhängig vom Status der Räume.
 
-### Warnung wenn nicht besetzt:
+### Warnung, wenn alle Räume nicht besetzt sind:
 ```yaml
 warning_banner:
   enabled: true
   image_path: /local/Warning.png
-  text: Raum ist derzeit nicht besetzt
+  text: Derzeit ist kein Raum besetzt
   show_when: nicht besetzt
 ```
 
@@ -338,6 +386,12 @@ Private Nutzung
 - ✨ Responsive Design für mobil
 - ✨ Textfeld 1 und 2 mit Inhalt aus Entitäten, je mit Schriftart, Schriftstärke, kursiv und unterstrichen
 - ✨ Kartenhöhe und Höhe des Raumplans einstellbar
+- 🔧 Antippen des aktuellen Status schließt nur das Popup (die Originalkarte schaltete den Raum dabei auf geschlossen)
+- 🔧 Statuswerte unabhängig von Groß- und Kleinschreibung, unbekannte Werte und alte englische Schlüssel werden in der Konsole genannt
+- 🔧 Fehlgeschlagene Statuswechsel erscheinen als Meldung in Home Assistant
+- 🔧 Editor: Fokus bleibt beim Wechsel zwischen Feldern, letzter Raum nicht entfernbar, doppelte Positionen werden getauscht
+- 🔧 Popup deckt auch bei Themes mit Weichzeichner den ganzen Bildschirm ab
+- 🔧 Höhe: Rahmen von ha-card und Zeilenhöhen in rem werden korrekt berücksichtigt
 
 ---
 
